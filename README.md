@@ -8,9 +8,9 @@ It will update as the window title text (including when minimized) <br>
 <b>Why?</b>
 (other than 'I got bored')
 
-RAM usage:
-this app < 3MB
-cryptowat.ch on a browser > 20MB (just for that tab) 
+RAM usage:<br>
+this app < 3MB <br>
+cryptowat.ch on a browser > 20MB (just for that tab)  <br>
 
 <b>Compiling</b>
 
