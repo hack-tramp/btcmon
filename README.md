@@ -5,7 +5,8 @@ It pulls it from api.cryptowat.ch/markets/coinbase-pro/btcusd/price ,
 which can be changed to another API or currency (default is BTC/USD)
 It will update as the window title text (including when minimized)
 
-[Why? (other than 'I got bored')]
+<b>Why?</b>
+(other than 'I got bored')
 
 RAM usage:
 this app < 3MB
