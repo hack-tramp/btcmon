@@ -1,7 +1,7 @@
 # btcmon - very small cryptocurrency monitor
 
 This is a super small windows app to show you the current price of any crypto. <br>
-It pulls it from api.cryptowat.ch/markets/coinbase-pro/btcusd/price , <br>
+It pulls it from https://api.cryptowat.ch/markets/coinbase-pro/btcusd/price , <br>
 which can be changed to another API or currency (default is BTC/USD)<br>
 It will update as the window title text (including when minimized) <br>
 
