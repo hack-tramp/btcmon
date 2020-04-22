@@ -1,12 +1,11 @@
-# btcmon
-Crypto monitor (micro)
+# btcmon - Crypto monitor (micro)
 
 This is a super small windows app to show you the current price of any crypto. 
 It pulls it from api.cryptowat.ch/markets/coinbase-pro/btcusd/price , 
 which can be changed to another API or currency (default is BTC/USD)
 It will update as the window title text (including when minimized)
 
-Why? (other than 'I got bored')
+#Why? (other than 'I got bored')
 
 RAM usage:
 this app < 3MB
