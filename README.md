@@ -15,8 +15,7 @@ cryptowat.ch on a browser > 20MB (just for that tab)  <br>
 <b>Compiling</b>
 
 Required libraries:<br>
-C++ Requests :
-<br>https://whoshuu.github.io/cpr/<br>
+cpr (https://whoshuu.github.io/cpr/) - see btcmon-cpr.cpp<br>
 or<br>
-curl
+curl (https://curl.haxx.se/libcurl/) - see btcmon.cpp
 
