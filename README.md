@@ -1,9 +1,9 @@
 # btcmon - super small cryptocurrency monitor
 
-This is a super small (<500KB on disk, 1.5MB in RAM) windows app to show you the current price of any crypto. <br><br>
+This is a super small (<500KB on disk, 1.5MB in RAM) windows app to show you the live price of any crypto pair. <br><br>
 It pulls it from https://api.cryptowat.ch/markets/coinbase-pro/btcusd/price  <br>
-can be changed to another currency pair (default is BTC/USD)<br><br>
-price is set as the window title text, including when minimized on the taskbar <br>
+
+The price is set as the window title text, including when minimized on the taskbar <br>
 
 <b>Why?</b>
 (other than 'I got bored')
