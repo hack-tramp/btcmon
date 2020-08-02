@@ -16,5 +16,7 @@ cryptowat.ch on a browser > 20MB (just for that tab)  <br>
 
 Required libraries:<br>
 C++ Requests :
-<br>https://whoshuu.github.io/cpr/
+<br>https://whoshuu.github.io/cpr/<br>
+or<br>
+curl
 
