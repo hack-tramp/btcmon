@@ -9,7 +9,7 @@ It will update as the window title text (including when minimized) <br>
 (other than 'I got bored')
 
 RAM usage:<br>
-this app < 3MB <br>
+this app < 2MB <br>
 cryptowat.ch on a browser > 20MB (just for that tab)  <br>
 
 <b>Compiling</b>
@@ -17,4 +17,4 @@ cryptowat.ch on a browser > 20MB (just for that tab)  <br>
 Required libraries:<br>
 C++ Requests :
 <br>https://whoshuu.github.io/cpr/
-<br> (c++ requests uses curl and https://github.com/nlohmann/json )
+
