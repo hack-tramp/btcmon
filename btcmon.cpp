@@ -15,6 +15,9 @@ HFONT mainfont = CreateFont(18, 0 , 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, DEFA
 HFONT pricefont = CreateFont(34, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
     CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Arial"));
 
+HFONT axisfont = CreateFont(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
+    CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Arial"));
+
 //IDs
 int CRRC = 201;
 int COIN = 202;
@@ -333,7 +336,7 @@ struct gdata {
 };
 
 struct notch {
-    int x = 0;
+    int coord = 0;
     string label = "";
 };
 
@@ -346,8 +349,9 @@ string xmap[1200];
 string ymap[1200];
 //notches
 notch xnotch[1300];
+notch ynotch[1300];
 
-int gx = 50;
+int gx = 150;
 int gy = 500;
 int gheight = 400;
 int gwidth = 600;
@@ -656,9 +660,11 @@ void get_graph() {
     //the price in each y pixel 
     gstepy = ((int)gmax-(int)gmin)/(gheight);
     //the hours in each x pixel
-    gstepx = (30*24)/gwidth;
+    //get total hours 
+    //gstepx = (30*24)/gwidth;
+    gstepx = ((json_dump[idx-1].tst - json_dump[0].tst)/3600) / gwidth;
     //seconds in each x pixel for tst , for x axis (below)
-    int gstepxs = (30 * 24 * 3600) / gwidth;
+    int gstepxs = gstepx*3600;
     for (k = 0; k <= idx; k++) {
         if (k == idx) {
             coords[k].label = "[end]";
@@ -668,13 +674,34 @@ void get_graph() {
             gwidth = coords[k-1].x;
         }
         else {
-            //convert seconds to hours
+            //convert seconds to hours - just to make it small enough to fit the window
             coords[k].x = (json_dump[k].tst - json_dump[0].tst)/3600;
             coords[k].y = ((int) json_dump[k].price - (int) gmin)/gstepy;
             coords[k].label = json_dump[k].label;
         }
     }
     
+    //the price for each y axis pixel is stored in ymap
+    int tempstep = 0;
+    int nidy = 0;
+    for (k = 0; k < gheight; k++) {
+        tempstep = k * gstepy;
+        ymap[k] = to_string(gmin - tempstep);
+
+        //for now just the first and last y pixels have notches
+        if (k == 0) {
+            ynotch[nidy].label = ymap[k];
+            ynotch[nidy].coord = k;
+            nidy++;
+        } 
+        if (k == (gheight - 1)) {
+            ynotch[nidy].label = ymap[k];
+            ynotch[nidy].coord = k;
+            nidy++;
+            ynotch[nidy].label = "[end]";
+        }
+    }
+
     //the time and date for each x axis pixel is stored in xmap
     char latest_day[200] = "";
     char current_day[200] = "";
@@ -696,7 +723,7 @@ void get_graph() {
             strftime(current_day, sizeof(current_day), "%d/%m", &timeinfo);
             if (strcmp(latest_day,current_day)!=0) {
                 //date has changed, add a notch on x axis
-                xnotch[nidx].x = k;
+                xnotch[nidx].coord = k;
                 //the first and last notches are always labeled + larger
                 if (nidx == 0) {
                     xnotch[nidx].label = current_day;
@@ -727,6 +754,8 @@ void get_graph() {
 
 void draw_graph(HDC devc) {
 
+    SetTextColor(devc, RGB(120, 120, 120));
+    SelectObject(devc, axisfont);
     int k = 0;
     SelectObject(devc, hilopen);
 
@@ -753,24 +782,57 @@ void draw_graph(HDC devc) {
     //y axis
     MoveToEx(devc, gx , gy + coords[min_idx].y + ypadding, NULL);
     LineTo(devc, gx , gy  - coords[max_idx].y - ypadding);
+
+    //min and max notches
+    MoveToEx(devc, gx - 20, gy - coords[min_idx].y, NULL);
+    LineTo(devc, gx , gy - coords[min_idx].y);
+    string minpricestr = coords[min_idx].label.substr(0,coords[min_idx].label.find("@"));
+    TextOut(devc, gx - 100 , gy - coords[min_idx].y - 10, minpricestr.c_str(), minpricestr.size());
+
+    MoveToEx(devc, gx - 20, gy - coords[max_idx].y, NULL);
+    LineTo(devc, gx, gy - coords[max_idx].y);
+    string maxpricestr = coords[max_idx].label.substr(0, coords[max_idx].label.find("@"));
+    TextOut(devc, gx - 100, gy - coords[max_idx].y - 10 , maxpricestr.c_str(), maxpricestr.size());
+
+    int g = 0;
+    /*
+        for (g = 0; g < sizeof(ynotch); g++) {
+        if (ynotch[g].label != "[end]") {
+            //normal notch without label
+            if (ynotch[g].label == "") {
+
+            }
+            //labeled notch
+            else {
+                //MoveToEx(devc, gx - 20, gy - coords[min_idx].y, NULL);
+                //LineTo(devc, gx , gy + ypadding + coords[min_idx].y + 10);
+                //TextOut(devc, gx - 20 + xnotch[g].coord, gy + ypadding + coords[min_idx].y + 20, xnotch[g].label.c_str(), xnotch[g].label.size());
+            }
+        }
+        else {
+            break;
+        }
+    }
+    */
+
     //x axis
     MoveToEx(devc, gx , gy + ypadding + coords[min_idx].y, NULL);
     LineTo(devc, gx  + gwidth + xpadding, gy + ypadding +  coords[min_idx].y);
-    int g = 0;
+    g = 0;
     for (g = 0; g < sizeof(xnotch); g++) {
         if (xnotch[g].label != "[end]") {
             //normal notches without a label
             if (xnotch[g].label == "") {
-                MoveToEx(devc, gx + xnotch[g].x, gy + ypadding + coords[min_idx].y, NULL);
-                LineTo(devc, gx + xnotch[g].x, gy + ypadding + coords[min_idx].y + 5);
+                MoveToEx(devc, gx + xnotch[g].coord, gy + ypadding + coords[min_idx].y, NULL);
+                LineTo(devc, gx + xnotch[g].coord, gy + ypadding + coords[min_idx].y + 5);
                 //SetPixelV(devc, gx + g, gy + ypadding + coords[min_idx].y + 20, RGB(0, 0, 0));
                 //OutputDebugString("xnotch\n");           
             }
             else {
                 //labeled notches
-                MoveToEx(devc, gx + xnotch[g].x, gy + ypadding + coords[min_idx].y, NULL);
-                LineTo(devc, gx + xnotch[g].x, gy + ypadding + coords[min_idx].y + 10);
-                TextOut(devc, gx - 20 + xnotch[g].x, gy + ypadding + coords[min_idx].y + 20, xnotch[g].label.c_str(), xnotch[g].label.size());
+                MoveToEx(devc, gx + xnotch[g].coord, gy + ypadding + coords[min_idx].y, NULL);
+                LineTo(devc, gx + xnotch[g].coord, gy + ypadding + coords[min_idx].y + 10);
+                TextOut(devc, gx - 20 + xnotch[g].coord, gy + ypadding + coords[min_idx].y + 20, xnotch[g].label.c_str(), xnotch[g].label.size());
             }
 
         }
@@ -779,7 +841,8 @@ void draw_graph(HDC devc) {
         }
     }
 
-
+    SetTextColor(devc, RGB(0, 0, 0));
+    SelectObject(devc, mainfont);
     
 }
 
@@ -820,7 +883,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
         WS_OVERLAPPEDWINDOW, /* default window */
         CW_USEDEFAULT,       /* Windows decides the position */
         CW_USEDEFAULT,       /* where the window ends up on the screen */
-        800,                 /* The programs width */
+        1024,                 /* The programs width */
         600,                 /* and height in pixels */
         HWND_DESKTOP,        /* The window is a child-window to desktop */
         NULL,                /* No menu */
