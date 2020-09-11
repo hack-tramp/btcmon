@@ -9,6 +9,9 @@
 
 using namespace std;
 
+HCURSOR cross = LoadCursor(NULL, IDC_CROSS);
+HCURSOR arrow = LoadCursor(NULL, IDC_ARROW);
+
 HFONT mainfont = CreateFont(18, 0 , 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
     CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Arial"));
 
@@ -352,10 +355,21 @@ notch xnotch[1300];
 notch ynotch[1300];
 
 int gx = 150;
+//gx,gy is the lower left corner
 int gy = 500;
+int ypadding = 10;
+int xpadding = 10;
 int gheight = 400;
 int gwidth = 600;
 int gstatus = 0;
+
+bool mouse_over_graph = false;
+int mouse_x = 0;
+int mouse_y = 0;
+int mouse_dx = 0;
+int mouse_dy = 0;
+
+RECT line_upd;
 
 int min_idx = 0;
 int max_idx = 0;
@@ -777,8 +791,7 @@ void draw_graph(HDC devc) {
     
     //draw axes
     SelectObject(devc, axespen);
-    int ypadding = 10;
-    int xpadding = 10;
+
     //y axis
     MoveToEx(devc, gx , gy + coords[min_idx].y + ypadding, NULL);
     LineTo(devc, gx , gy  - coords[max_idx].y - ypadding);
@@ -795,25 +808,7 @@ void draw_graph(HDC devc) {
     TextOut(devc, gx - 100, gy - coords[max_idx].y - 10 , maxpricestr.c_str(), maxpricestr.size());
 
     int g = 0;
-    /*
-        for (g = 0; g < sizeof(ynotch); g++) {
-        if (ynotch[g].label != "[end]") {
-            //normal notch without label
-            if (ynotch[g].label == "") {
 
-            }
-            //labeled notch
-            else {
-                //MoveToEx(devc, gx - 20, gy - coords[min_idx].y, NULL);
-                //LineTo(devc, gx , gy + ypadding + coords[min_idx].y + 10);
-                //TextOut(devc, gx - 20 + xnotch[g].coord, gy + ypadding + coords[min_idx].y + 20, xnotch[g].label.c_str(), xnotch[g].label.size());
-            }
-        }
-        else {
-            break;
-        }
-    }
-    */
 
     //x axis
     MoveToEx(devc, gx , gy + ypadding + coords[min_idx].y, NULL);
@@ -839,6 +834,14 @@ void draw_graph(HDC devc) {
         else {
             break;
         }
+    }
+
+    //mouse over graph
+    if (mouse_over_graph) {
+        MoveToEx(devc, gx, mouse_y, NULL);
+        LineTo(devc, mouse_x, mouse_y);
+        MoveToEx(devc, mouse_x, gy + ypadding, NULL);
+        LineTo(devc, mouse_x, mouse_y);
     }
 
     SetTextColor(devc, RGB(0, 0, 0));
@@ -1001,6 +1004,34 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
 
         EndPaint(hwnd, &ps);
         break;
+
+    case WM_MOUSEMOVE:
+        //LOWORD is x coord, HIWORD y
+        //if the graph is on, detect when mouse is in graph area
+        if (gstatus != 0) {
+            mouse_dx = LOWORD(lParam) - mouse_x;
+            mouse_dy = HIWORD(lParam) - mouse_y;
+            mouse_x = LOWORD(lParam);
+            mouse_y = HIWORD(lParam);
+
+            if ((LOWORD(lParam) > gx) & (LOWORD(lParam) < (gx + gwidth + xpadding )) & (HIWORD(lParam) > (gy - gheight - ypadding)) & (HIWORD(lParam) < (gy + ypadding) )) {
+                OutputDebugString("mouse in graph area\n");
+                mouse_over_graph = true;
+                line_upd.left = gx;
+                line_upd.top = mouse_y - ypadding - mouse_dy;
+                line_upd.right = mouse_x + xpadding - mouse_dx;
+                line_upd.bottom = gy + ypadding ;
+                RedrawWindow(hwnd, &line_upd, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+                SetCursor(cross);
+            }
+            else {
+                mouse_over_graph = false;
+                SetCursor(arrow);
+            }
+        }
+
+        break;
+
     case WM_COMMAND:
         if (HIWORD(wParam) == CBN_SELCHANGE)
             // If the user makes a selection from the list:
