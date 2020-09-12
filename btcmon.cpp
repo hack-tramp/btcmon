@@ -364,6 +364,8 @@ int gwidth = 600;
 int gstatus = 0;
 
 bool mouse_over_graph = false;
+int old_mouse_x = 0;
+int old_mouse_y = 0;
 int mouse_x = 0;
 int mouse_y = 0;
 int mouse_dx = 0;
@@ -842,6 +844,7 @@ void draw_graph(HDC devc) {
         LineTo(devc, mouse_x, mouse_y);
         MoveToEx(devc, mouse_x, gy + ypadding, NULL);
         LineTo(devc, mouse_x, mouse_y);
+        TextOut(devc, 200, 400, ymap[mouse_y].c_str(), ymap[mouse_y].size());
     }
 
     SetTextColor(devc, RGB(0, 0, 0));
@@ -868,7 +871,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     /* Use default icon and mouse-pointer */
     wincl.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     wincl.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
-    wincl.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wincl.hCursor = NULL;
     wincl.lpszMenuName = NULL;                 /* No menu */
     wincl.cbClsExtra = 0;                      /* No extra bytes after the window class */
     wincl.cbWndExtra = 0;                      /* structure or the window instance */
@@ -1009,29 +1012,42 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
         //LOWORD is x coord, HIWORD y
         //if the graph is on, detect when mouse is in graph area
         if (gstatus != 0) {
-            mouse_dx = LOWORD(lParam) - mouse_x;
-            mouse_dy = HIWORD(lParam) - mouse_y;
+
+            old_mouse_x = mouse_x;
+            old_mouse_y = mouse_y;
             mouse_x = LOWORD(lParam);
             mouse_y = HIWORD(lParam);
+            mouse_dx = mouse_x - old_mouse_x;
+            mouse_dy = mouse_y - old_mouse_y;
 
-            if ((LOWORD(lParam) > gx) & (LOWORD(lParam) < (gx + gwidth + xpadding )) & (HIWORD(lParam) > (gy - gheight - ypadding)) & (HIWORD(lParam) < (gy + ypadding) )) {
-                OutputDebugString("mouse in graph area\n");
-                mouse_over_graph = true;
+            if ((mouse_x > gx) & (mouse_x < (gx + gwidth + xpadding )) & (mouse_y > (gy - gheight - ypadding)) & (mouse_y< (gy + ypadding) )) {
+                if (!mouse_over_graph) {
+                    mouse_over_graph = true;
+                    SetCursor(cross);
+                }
+                
                 line_upd.left = gx;
                 line_upd.top = mouse_y - ypadding - mouse_dy;
                 line_upd.right = mouse_x + xpadding - mouse_dx;
                 line_upd.bottom = gy + ypadding ;
                 RedrawWindow(hwnd, &line_upd, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
-                SetCursor(cross);
+                
             }
             else {
-                mouse_over_graph = false;
-                SetCursor(arrow);
+                if (mouse_over_graph) {
+                    //OutputDebugString("just left graph\n");
+                    mouse_over_graph = false;
+                    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+                }
             }
         }
 
         break;
-
+    case WM_SETCURSOR:
+        if (!mouse_over_graph) {
+            SetCursor(arrow);
+        }
+        break;
     case WM_COMMAND:
         if (HIWORD(wParam) == CBN_SELCHANGE)
             // If the user makes a selection from the list:
