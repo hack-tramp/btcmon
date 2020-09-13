@@ -359,6 +359,8 @@ int gx = 150;
 int gy = 500;
 int ypadding = 10;
 int xpadding = 10;
+int notch_xpad = 100;
+int notch_ypad = 100;
 int gheight = 400;
 int gwidth = 600;
 int gstatus = 0;
@@ -371,7 +373,7 @@ int mouse_y = 0;
 int mouse_dx = 0;
 int mouse_dy = 0;
 
-RECT line_upd;
+POINT upd[10];
 
 int min_idx = 0;
 int max_idx = 0;
@@ -674,7 +676,7 @@ void get_graph() {
     OutputDebugString(outp);
 
     //the price in each y pixel 
-    gstepy = ((int)gmax-(int)gmin)/(gheight);
+    gstepy = (int) ( (gmax-gmin)/(gheight));
     //the hours in each x pixel
     //get total hours 
     //gstepx = (30*24)/gwidth;
@@ -700,10 +702,14 @@ void get_graph() {
     //the price for each y axis pixel is stored in ymap
     int tempstep = 0;
     int nidy = 0;
+
     for (k = 0; k < gheight; k++) {
         tempstep = k * gstepy;
-        ymap[k] = to_string(gmin - tempstep);
-
+        ymap[k] = to_string(gmin + tempstep);
+        //if there is a decimal point only show two digits after it
+        if (ymap[k].find(".") != string::npos) {
+            ymap[k] = ymap[k].substr(0, ymap[k].find(".")+3);
+        }
         //for now just the first and last y pixels have notches
         if (k == 0) {
             ynotch[nidy].label = ymap[k];
@@ -733,10 +739,10 @@ void get_graph() {
         rawtime = (const time_t)tst;
         localtime_s(&timeinfo, &rawtime);
         if (k == 0) {
-            strftime(latest_day, sizeof(latest_day), "%d/%m", &timeinfo);
+            strftime(latest_day, sizeof(latest_day), "%d %b", &timeinfo);
         }
         else {
-            strftime(current_day, sizeof(current_day), "%d/%m", &timeinfo);
+            strftime(current_day, sizeof(current_day), "%d %b", &timeinfo);
             if (strcmp(latest_day,current_day)!=0) {
                 //date has changed, add a notch on x axis
                 xnotch[nidx].coord = k;
@@ -755,10 +761,10 @@ void get_graph() {
                     }
                 }
                 nidx++;
-                strftime(latest_day, sizeof(latest_day), "%d/%m", &timeinfo);
+                strftime(latest_day, sizeof(latest_day), "%d %b", &timeinfo);
             }
         }
-        strftime(outp, sizeof(outp), "%H:%M:%S %d %m", &timeinfo);
+        strftime(outp, sizeof(outp), "%H:%M %d %b", &timeinfo);
         xmap[k] = outp;
         if (k == (gwidth - 1)) {
             xmap[k + 1] = "[end]";
@@ -802,12 +808,12 @@ void draw_graph(HDC devc) {
     MoveToEx(devc, gx - 20, gy - coords[min_idx].y, NULL);
     LineTo(devc, gx , gy - coords[min_idx].y);
     string minpricestr = coords[min_idx].label.substr(0,coords[min_idx].label.find("@"));
-    TextOut(devc, gx - 100 , gy - coords[min_idx].y - 10, minpricestr.c_str(), minpricestr.size());
+    TextOut(devc, gx - notch_xpad, gy - coords[min_idx].y - 10, minpricestr.c_str(), minpricestr.size());
 
     MoveToEx(devc, gx - 20, gy - coords[max_idx].y, NULL);
     LineTo(devc, gx, gy - coords[max_idx].y);
     string maxpricestr = coords[max_idx].label.substr(0, coords[max_idx].label.find("@"));
-    TextOut(devc, gx - 100, gy - coords[max_idx].y - 10 , maxpricestr.c_str(), maxpricestr.size());
+    TextOut(devc, gx - notch_xpad, gy - coords[max_idx].y - 10 , maxpricestr.c_str(), maxpricestr.size());
 
     int g = 0;
 
@@ -840,11 +846,16 @@ void draw_graph(HDC devc) {
 
     //mouse over graph
     if (mouse_over_graph) {
+        //horizontal line
         MoveToEx(devc, gx, mouse_y, NULL);
         LineTo(devc, mouse_x, mouse_y);
+        //vertical line
         MoveToEx(devc, mouse_x, gy + ypadding, NULL);
         LineTo(devc, mouse_x, mouse_y);
-        TextOut(devc, 200, 400, ymap[mouse_y].c_str(), ymap[mouse_y].size());
+        //y axis label
+        TextOut(devc, gx - notch_xpad, mouse_y, ymap[gy - mouse_y].c_str(), ymap[gy - mouse_y].size());
+        //x axis label
+        TextOut(devc, mouse_x - xpadding - xpadding - xpadding, gy + ypadding + coords[min_idx].y + 20, xmap[mouse_x - gx].c_str(), xmap[mouse_x - gx].size());
     }
 
     SetTextColor(devc, RGB(0, 0, 0));
@@ -1025,12 +1036,28 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                     mouse_over_graph = true;
                     SetCursor(cross);
                 }
-                
-                line_upd.left = gx;
-                line_upd.top = mouse_y - ypadding - mouse_dy;
-                line_upd.right = mouse_x + xpadding - mouse_dx;
-                line_upd.bottom = gy + ypadding ;
-                RedrawWindow(hwnd, &line_upd, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+
+                upd[0].x = gx;
+                upd[0].y = mouse_y + notch_ypad;
+                upd[1].x = gx - notch_xpad;
+                upd[1].y = mouse_y + notch_ypad;
+
+                upd[2].x = gx - notch_xpad;
+                upd[2].y = mouse_y - ypadding - mouse_dy;
+                upd[3].x = mouse_x + xpadding - mouse_dx;
+                upd[3].y = mouse_y - ypadding - mouse_dy;
+                upd[4].x = mouse_x + xpadding + notch_xpad - mouse_dx;
+                upd[4].y = gy + ypadding + notch_ypad;
+                upd[5].x = gx;
+                upd[5].y = gy + ypadding + notch_ypad;
+                upd[6].x = gx;
+                upd[6].y = mouse_y - ypadding - mouse_dy;
+
+                //TextOut(devc, mouse_x, gy + notch_ypad);
+                //TextOut(devc, gx - notch_xpad, mouse_y);
+                HRGN upd_r = CreatePolygonRgn(upd, 7, ALTERNATE);
+                RedrawWindow(hwnd, NULL, upd_r, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+                DeleteObject(upd_r);
                 
             }
             else {
