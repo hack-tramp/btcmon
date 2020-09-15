@@ -1036,27 +1036,48 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                     mouse_over_graph = true;
                     SetCursor(cross);
                 }
+                /*
+                2------------3
+                |            |
+                1------0/6   |
+                         |   |
+                         |   |
+                         5---4  
+                         
+                2------------3
+                |            |
+                1------0/10  |
+                         |   |
+                         |   |
+                      8--9---4---5
+                      |          |
+                      7----------6
+                         */
 
-                upd[0].x = gx;
-                upd[0].y = mouse_y + notch_ypad;
+
+                upd[0].x = mouse_x -  mouse_dx - notch_xpad;
+                upd[0].y = mouse_y + (ypadding*2) - mouse_dy;
                 upd[1].x = gx - notch_xpad;
-                upd[1].y = mouse_y + notch_ypad;
+                upd[1].y = mouse_y + (ypadding*2) - mouse_dy;
 
                 upd[2].x = gx - notch_xpad;
                 upd[2].y = mouse_y - ypadding - mouse_dy;
-                upd[3].x = mouse_x + xpadding - mouse_dx;
+                upd[3].x = mouse_x + xpadding + notch_xpad - mouse_dx;
                 upd[3].y = mouse_y - ypadding - mouse_dy;
+
                 upd[4].x = mouse_x + xpadding + notch_xpad - mouse_dx;
                 upd[4].y = gy + ypadding + notch_ypad;
-                upd[5].x = gx;
+                upd[5].x = mouse_x -  mouse_dx - notch_xpad;
                 upd[5].y = gy + ypadding + notch_ypad;
-                upd[6].x = gx;
-                upd[6].y = mouse_y - ypadding - mouse_dy;
+                upd[6].x = upd[0].x;
+                upd[6].y = upd[0].y;
 
                 //TextOut(devc, mouse_x, gy + notch_ypad);
                 //TextOut(devc, gx - notch_xpad, mouse_y);
                 HRGN upd_r = CreatePolygonRgn(upd, 7, ALTERNATE);
+                //UpdateWindow(hwnd);
                 RedrawWindow(hwnd, NULL, upd_r, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+                
                 DeleteObject(upd_r);
                 
             }
