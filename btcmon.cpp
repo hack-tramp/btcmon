@@ -366,6 +366,10 @@ int gwidth = 600;
 int gstatus = 0;
 
 bool mouse_over_graph = false;
+//whether mouse is over/close to a graph coord
+int cfocus = -1;
+int cfocus_x_final = 0;
+int cfocus_y_final = 0;
 int old_mouse_x = 0;
 int old_mouse_y = 0;
 int mouse_x = 0;
@@ -373,7 +377,7 @@ int mouse_y = 0;
 int mouse_dx = 0;
 int mouse_dy = 0;
 
-POINT upd[10];
+POINT upd[12];
 
 int min_idx = 0;
 int max_idx = 0;
@@ -439,8 +443,9 @@ void stop_curl() {
     curl = NULL;
 }
 
-void get_graph() {
+void get_graph(string coin, string currency, string days) {
 
+    string url;
     string raw;
     string elmnt;
     char outp[200];
@@ -452,9 +457,10 @@ void get_graph() {
     time_t rawtime;
     struct tm timeinfo;
 
+    url = "https://api.coingecko.com/api/v3/coins/"+coin+"/market_chart?vs_currency="+currency+"&days="+days;
 
     stop_curl();
-    start_curl(raw, "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=30");
+    start_curl(raw, url);
     curl_easy_perform(curl);
     stop_curl();
     start_curl(str_price, final_url);
@@ -467,7 +473,7 @@ void get_graph() {
 
     double gmax = 0;
     double gmin = 0;
-    int gstepy;
+    double gstepy;
     int gstepx;
 
     string tempt;
@@ -507,7 +513,7 @@ void get_graph() {
             if (temppr > hi) {
                 hi = temppr;
                 hitst = tst;
-                strftime(outp, sizeof(outp), " @ %H:%M:%S %d-%m-%y", &timeinfo);
+                strftime(outp, sizeof(outp), " @ %H:%M %d %b", &timeinfo);
                 hilbl = elmnt.substr(elmnt.find(",") + 1);
                 //if price has decimal point
                 if (hilbl.find(".") != std::string::npos) {
@@ -520,7 +526,7 @@ void get_graph() {
             if (temppr < lo) {
                 lo = temppr;
                 lotst = tst;
-                strftime(outp, sizeof(outp), " @ %H:%M:%S %d-%m-%y", &timeinfo);
+                strftime(outp, sizeof(outp), " @ %H:%M %d %b", &timeinfo);
                 lolbl = elmnt.substr(elmnt.find(",") + 1);
                 //if price has decimal point
                 if (lolbl.find(".") != std::string::npos) {
@@ -584,7 +590,7 @@ void get_graph() {
             hitst = tst;
             lo = temppr;
             lotst = tst;
-            strftime(outp, sizeof(outp), " @ %H:%M:%S %d-%m-%y", &timeinfo);
+            strftime(outp, sizeof(outp), " @ %H:%M %d %b", &timeinfo);
             lolbl = elmnt.substr(elmnt.find(",") + 1);
             //if price has decimal point
             if (lolbl.find(".") != std::string::npos) {
@@ -676,7 +682,7 @@ void get_graph() {
     OutputDebugString(outp);
 
     //the price in each y pixel 
-    gstepy = (int) ( (gmax-gmin)/(gheight));
+    gstepy =  ( (gmax-gmin)/(gheight));
     //the hours in each x pixel
     //get total hours 
     //gstepx = (30*24)/gwidth;
@@ -694,7 +700,7 @@ void get_graph() {
         else {
             //convert seconds to hours - just to make it small enough to fit the window
             coords[k].x = (json_dump[k].tst - json_dump[0].tst)/3600;
-            coords[k].y = ((int) json_dump[k].price - (int) gmin)/gstepy;
+            coords[k].y = ( json_dump[k].price - gmin)/gstepy;
             coords[k].label = json_dump[k].label;
         }
     }
@@ -844,18 +850,46 @@ void draw_graph(HDC devc) {
         }
     }
 
+    cfocus = -1;
+    for (k = 0; k < sizeof(coords); k++) {
+        if (coords[k].label == "[end]") {
+            break;
+        }
+        else {
+            if ( (mouse_x < (gx + coords[k].x + 10)) & (mouse_x > (gx + coords[k].x - 10)) & (mouse_y < (gy - coords[k].y + 10)) & (mouse_y > (gy - coords[k].y - 10))) {
+                cfocus = k;
+                //OutputDebugString("coord in focus\n");
+                break;
+            }
+        }
+    }
+
     //mouse over graph
     if (mouse_over_graph) {
-        //horizontal line
-        MoveToEx(devc, gx, mouse_y, NULL);
-        LineTo(devc, mouse_x, mouse_y);
-        //vertical line
-        MoveToEx(devc, mouse_x, gy + ypadding, NULL);
-        LineTo(devc, mouse_x, mouse_y);
-        //y axis label
-        TextOut(devc, gx - notch_xpad, mouse_y, ymap[gy - mouse_y].c_str(), ymap[gy - mouse_y].size());
-        //x axis label
-        TextOut(devc, mouse_x - xpadding - xpadding - xpadding, gy + ypadding + coords[min_idx].y + 20, xmap[mouse_x - gx].c_str(), xmap[mouse_x - gx].size());
+        if (cfocus!=-1) {
+            cfocus_x_final = gx + coords[cfocus].x;
+            cfocus_y_final = gy - coords[cfocus].y;
+            if (gx + coords[cfocus].x > (gx + gwidth + xpadding - 50)) {
+                cfocus_x_final -= 100;
+            }
+            if (cfocus_y_final < (gy - coords[max_idx].y + 50)) {
+                cfocus_y_final += 10;
+            }
+            TextOut(devc, cfocus_x_final, cfocus_y_final, coords[cfocus].label.c_str(), coords[cfocus].label.size());
+        }
+        else {
+            //horizontal line
+            MoveToEx(devc, gx, mouse_y, NULL);
+            LineTo(devc, mouse_x, mouse_y);
+            //vertical line
+            MoveToEx(devc, mouse_x, gy + ypadding, NULL);
+            LineTo(devc, mouse_x, mouse_y);
+            //y axis label
+            TextOut(devc, gx - notch_xpad, mouse_y, ymap[gy - mouse_y].c_str(), ymap[gy - mouse_y].size());
+            //x axis label
+            TextOut(devc, mouse_x - xpadding - xpadding - xpadding, gy + ypadding + coords[min_idx].y + 20, xmap[mouse_x - gx].c_str(), xmap[mouse_x - gx].size());
+
+        }
     }
 
     SetTextColor(devc, RGB(0, 0, 0));
@@ -865,7 +899,7 @@ void draw_graph(HDC devc) {
 
 int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszArgument, int nCmdShow)
 {
-    get_graph();
+    get_graph("bitcoin-cash","usd","30");
     start_curl(str_price,final_url);
 
     HWND hwnd;               /* This is the handle for our window */
@@ -1036,48 +1070,96 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                     mouse_over_graph = true;
                     SetCursor(cross);
                 }
+
+                
+                if (cfocus != -1) {
+                    upd[0].x = cfocus_x_final;
+                    upd[0].y = cfocus_y_final;
+
+                    upd[1].x = upd[0].x + 200;
+                    upd[1].y = upd[0].y;
+
+                    upd[2].x = upd[1].x;
+                    upd[2].y = upd[0].y + 200;
+
+                    upd[3].x = upd[0].x;
+                    upd[3].y = upd[0].y + 200;
+
+                    upd[4].x = upd[0].x;
+                    upd[4].y = upd[0].y;
+
+                    upd[5].x = NULL;
+                    upd[5].y = NULL;
+
+                    upd[6].x = NULL;
+                    upd[6].y = NULL;
+
+                    upd[7].x = NULL;
+                    upd[7].y = NULL;
+
+                    upd[8].x = NULL;
+                    upd[8].y = NULL;
+
+                    upd[9].x = NULL;
+                    upd[9].y = NULL;
+
+                    upd[10].x = NULL;
+                    upd[10].y = NULL;
+                }
+                else {
+
                 /*
-                2------------3
-                |            |
-                1------0/6   |
-                         |   |
-                         |   |
-                         5---4  
-                         
+                        
                 2------------3
                 |            |
                 1------0/10  |
                          |   |
                          |   |
-                      8--9---4---5
+                      8--9   4---5
                       |          |
                       7----------6
                          */
+                    upd[0].x = mouse_x - xpadding - mouse_dx;
+                    upd[0].y = mouse_y + (ypadding*2) - mouse_dy;
 
+                    upd[1].x = gx - notch_xpad;
+                    upd[1].y = mouse_y + (ypadding*2) - mouse_dy;
 
-                upd[0].x = mouse_x -  mouse_dx - notch_xpad;
-                upd[0].y = mouse_y + (ypadding*2) - mouse_dy;
-                upd[1].x = gx - notch_xpad;
-                upd[1].y = mouse_y + (ypadding*2) - mouse_dy;
+                    upd[2].x = gx - notch_xpad;
+                    upd[2].y = mouse_y - ypadding - mouse_dy;
 
-                upd[2].x = gx - notch_xpad;
-                upd[2].y = mouse_y - ypadding - mouse_dy;
-                upd[3].x = mouse_x + xpadding + notch_xpad - mouse_dx;
-                upd[3].y = mouse_y - ypadding - mouse_dy;
+                    upd[3].x = mouse_x + xpadding - mouse_dx;
+                    upd[3].y = mouse_y - ypadding - mouse_dy;
 
-                upd[4].x = mouse_x + xpadding + notch_xpad - mouse_dx;
-                upd[4].y = gy + ypadding + notch_ypad;
-                upd[5].x = mouse_x -  mouse_dx - notch_xpad;
-                upd[5].y = gy + ypadding + notch_ypad;
-                upd[6].x = upd[0].x;
-                upd[6].y = upd[0].y;
+                    upd[4].x = upd[3].x;
+                    upd[4].y = gy + (ypadding*3) ;
+
+                    upd[5].x = mouse_x + xpadding + notch_xpad - mouse_dx;
+                    upd[5].y = upd[4].y;
+
+                    upd[6].x = mouse_x + xpadding + notch_xpad - mouse_dx;
+                    upd[6].y = gy + ypadding + notch_ypad;
+
+                    upd[7].x = mouse_x - mouse_dx - notch_xpad;
+                    upd[7].y = upd[6].y;
+
+                    upd[8].x = mouse_x - mouse_dx - notch_xpad;
+                    upd[8].y = upd[4].y;
+
+                    upd[9].x = upd[0].x;
+                    upd[9].y = upd[4].y;
+
+                    upd[10].x = upd[0].x;
+                    upd[10].y = upd[0].y;
+                }
+
 
                 //TextOut(devc, mouse_x, gy + notch_ypad);
                 //TextOut(devc, gx - notch_xpad, mouse_y);
-                HRGN upd_r = CreatePolygonRgn(upd, 7, ALTERNATE);
+                HRGN upd_r = CreatePolygonRgn(upd, 11, WINDING);
                 //UpdateWindow(hwnd);
                 RedrawWindow(hwnd, NULL, upd_r, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
-                
+                //UpdateWindow(hwnd);
                 DeleteObject(upd_r);
                 
             }
