@@ -377,10 +377,13 @@ int mouse_y = 0;
 int mouse_dx = 0;
 int mouse_dy = 0;
 
+//used as region to update in redrawwindow
 POINT upd[12];
 
 int min_idx = 0;
 int max_idx = 0;
+string minpricestr;
+string maxpricestr;
 
 string str_price = "loading.";
 double cur_price = 0;
@@ -418,6 +421,41 @@ LRESULT CALLBACK WindowProcedure(HWND, UINT, WPARAM, LPARAM);
 
 /*  Make the class name into a global variable  */
 TCHAR szClassName[] = _T("CryptoWindowsApp");
+
+//math formatting of price string
+string prettystr(string pstr) {
+    string outstr = "";
+    bool dec = false;
+    if (pstr.find(".") != string::npos) {
+        dec = true;
+    }
+    else {
+        dec = false;
+    }
+    //add commas for numbers over 999
+    int ccount = 0;
+    for (int c = pstr.length(); c-- > 0; ){ // c goes to zero
+        if (dec) {
+            if (pstr[c] == '.') {
+                //if there is a decimal point only show two digits after it
+                outstr = pstr.substr(c, 3);
+                dec = false;
+            }
+        }
+        else {
+            ccount++;
+            //every third character, add a comma in front
+            if ((ccount > 2) & (c!=0)) {
+                outstr = "," + pstr.substr(c, 1) + outstr;
+                ccount = 0;
+            }
+            else {
+                outstr = pstr.substr(c, 1) + outstr;
+            }
+        }
+    }
+    return outstr;
+}
 
 
 size_t writeFunction(void* ptr, size_t size, size_t nmemb, std::string* data) {
@@ -474,7 +512,6 @@ void get_graph(string coin, string currency, string days) {
     double gmax = 0;
     double gmin = 0;
     double gstepy;
-    int gstepx;
 
     string tempt;
     double temppr;
@@ -515,11 +552,7 @@ void get_graph(string coin, string currency, string days) {
                 hitst = tst;
                 strftime(outp, sizeof(outp), " @ %H:%M %d %b", &timeinfo);
                 hilbl = elmnt.substr(elmnt.find(",") + 1);
-                //if price has decimal point
-                if (hilbl.find(".") != std::string::npos) {
-                    //only show two digits after the decimal point (not rounded)
-                    hilbl = hilbl.substr(0, (hilbl.find(".") + 3));
-                }
+                hilbl = prettystr(hilbl);
                 hilbl = hilbl + outp;
 
             }
@@ -528,11 +561,7 @@ void get_graph(string coin, string currency, string days) {
                 lotst = tst;
                 strftime(outp, sizeof(outp), " @ %H:%M %d %b", &timeinfo);
                 lolbl = elmnt.substr(elmnt.find(",") + 1);
-                //if price has decimal point
-                if (lolbl.find(".") != std::string::npos) {
-                    //only show two digits after the decimal point (not rounded)
-                    lolbl = lolbl.substr(0, (lolbl.find(".") + 3));
-                }
+                lolbl = prettystr(lolbl);
                 lolbl = lolbl + outp;
             }
         }
@@ -592,11 +621,7 @@ void get_graph(string coin, string currency, string days) {
             lotst = tst;
             strftime(outp, sizeof(outp), " @ %H:%M %d %b", &timeinfo);
             lolbl = elmnt.substr(elmnt.find(",") + 1);
-            //if price has decimal point
-            if (lolbl.find(".") != std::string::npos) {
-                //only show two digits after the decimal point (not rounded)
-                lolbl = lolbl.substr(0, (lolbl.find(".") + 3));
-            }
+            lolbl = prettystr(lolbl);
             lolbl = lolbl + outp;
             hilbl = lolbl;
 
@@ -683,12 +708,9 @@ void get_graph(string coin, string currency, string days) {
 
     //the price in each y pixel 
     gstepy =  ( (gmax-gmin)/(gheight));
-    //the hours in each x pixel
-    //get total hours 
-    //gstepx = (30*24)/gwidth;
-    gstepx = ((json_dump[idx-1].tst - json_dump[0].tst)/3600) / gwidth;
     //seconds in each x pixel for tst , for x axis (below)
-    int gstepxs = gstepx*3600;
+    int gstepxs = (int)(json_dump[idx - 1].tst - json_dump[0].tst) / gwidth;
+
     for (k = 0; k <= idx; k++) {
         if (k == idx) {
             coords[k].label = "[end]";
@@ -700,22 +722,18 @@ void get_graph(string coin, string currency, string days) {
         else {
             //convert seconds to hours - just to make it small enough to fit the window
             coords[k].x = (json_dump[k].tst - json_dump[0].tst)/3600;
-            coords[k].y = ( json_dump[k].price - gmin)/gstepy;
+            coords[k].y = (int) (( json_dump[k].price - gmin)/gstepy);
             coords[k].label = json_dump[k].label;
         }
     }
     
     //the price for each y axis pixel is stored in ymap
-    int tempstep = 0;
+    double tempstep = 0;
     int nidy = 0;
 
     for (k = 0; k < gheight; k++) {
         tempstep = k * gstepy;
-        ymap[k] = to_string(gmin + tempstep);
-        //if there is a decimal point only show two digits after it
-        if (ymap[k].find(".") != string::npos) {
-            ymap[k] = ymap[k].substr(0, ymap[k].find(".")+3);
-        }
+        ymap[k] = prettystr(to_string(gmin + tempstep));
         //for now just the first and last y pixels have notches
         if (k == 0) {
             ynotch[nidy].label = ymap[k];
@@ -739,8 +757,12 @@ void get_graph(string coin, string currency, string days) {
     //30 days
     int xdstep = (int)(30 / xdivs);
 
-    for (k = 0; k < gwidth; k++) {
+    sprintf_s(outp, 200, "gstepxs: %d\n", gstepxs);
+    OutputDebugString(outp);
 
+    for (k = 0; k < gwidth; k++) {
+        //sprintf_s(outp, 200, "iteration no: %d\n", k);
+        //OutputDebugString(outp);
         tst = json_dump[0].tst + (k* gstepxs);
         rawtime = (const time_t)tst;
         localtime_s(&timeinfo, &rawtime);
@@ -749,6 +771,8 @@ void get_graph(string coin, string currency, string days) {
         }
         else {
             strftime(current_day, sizeof(current_day), "%d %b", &timeinfo);
+            //OutputDebugString(current_day);
+            //OutputDebugString("\n");
             if (strcmp(latest_day,current_day)!=0) {
                 //date has changed, add a notch on x axis
                 xnotch[nidx].coord = k;
@@ -774,10 +798,15 @@ void get_graph(string coin, string currency, string days) {
         xmap[k] = outp;
         if (k == (gwidth - 1)) {
             xmap[k + 1] = "[end]";
+            sprintf_s(outp, 200, "nidx no: %d\n", nidx);
+            OutputDebugString(outp);
             xnotch[nidx-1].label = latest_day;
             xnotch[nidx].label = "[end]";
+            OutputDebugString("finished xmap and xnotch\n");
         }
     }
+    minpricestr = (coords[min_idx].label.substr(0, coords[min_idx].label.find("@")));
+    maxpricestr = (coords[max_idx].label.substr(0, coords[max_idx].label.find("@")));
 }
 
 void draw_graph(HDC devc) {
@@ -810,15 +839,13 @@ void draw_graph(HDC devc) {
     MoveToEx(devc, gx , gy + coords[min_idx].y + ypadding, NULL);
     LineTo(devc, gx , gy  - coords[max_idx].y - ypadding);
 
-    //min and max notches
+    //min and max y notches
     MoveToEx(devc, gx - 20, gy - coords[min_idx].y, NULL);
     LineTo(devc, gx , gy - coords[min_idx].y);
-    string minpricestr = coords[min_idx].label.substr(0,coords[min_idx].label.find("@"));
     TextOut(devc, gx - notch_xpad, gy - coords[min_idx].y - 10, minpricestr.c_str(), minpricestr.size());
 
     MoveToEx(devc, gx - 20, gy - coords[max_idx].y, NULL);
     LineTo(devc, gx, gy - coords[max_idx].y);
-    string maxpricestr = coords[max_idx].label.substr(0, coords[max_idx].label.find("@"));
     TextOut(devc, gx - notch_xpad, gy - coords[max_idx].y - 10 , maxpricestr.c_str(), maxpricestr.size());
 
     int g = 0;
@@ -899,7 +926,7 @@ void draw_graph(HDC devc) {
 
 int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszArgument, int nCmdShow)
 {
-    get_graph("bitcoin-cash","usd","30");
+    get_graph(ids, vcs, "30");
     start_curl(str_price,final_url);
 
     HWND hwnd;               /* This is the handle for our window */
@@ -1196,6 +1223,10 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                 stop_curl();
                 final_url = price_url + "?ids=" + ids + "&vs_currencies=" + vcs;
                 start_curl(str_price,final_url);
+                if (gstatus != 0) {
+                    get_graph(ids, vcs, "30");
+                    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+                }
 
             }
             if (LOWORD(wParam) == COIN) {
@@ -1205,6 +1236,10 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                 stop_curl();
                 final_url = price_url + "?ids=" + ids + "&vs_currencies=" + vcs;
                 start_curl(str_price, final_url);
+                if (gstatus != 0) {
+                    get_graph(ids, vcs, "30");
+                    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+                }
 
             }
             if (LOWORD(wParam) == GRAPH) {
@@ -1230,6 +1265,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
             str_price = str_price.substr(pstart, str_price.find('}')-pstart);
             old_price = cur_price;
             cur_price = stod(str_price);
+            str_price = prettystr(str_price);
             SetWindowText(hwnd, str_price.c_str());
             RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
             return 0;
