@@ -21,6 +21,9 @@ HFONT pricefont = CreateFont(34, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, DEFA
 HFONT axisfont = CreateFont(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
     CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Arial"));
 
+HFONT yaxisfont = CreateFont(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
+    CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Arial"));
+
 //IDs
 int CRRC = 201;
 int COIN = 202;
@@ -354,7 +357,7 @@ string ymap[1200];
 notch xnotch[1300];
 notch ynotch[1300];
 
-int gx = 150;
+int gx = 110;
 //gx,gy is the lower left corner
 int gy = 500;
 int ypadding = 10;
@@ -421,6 +424,24 @@ LRESULT CALLBACK WindowProcedure(HWND, UINT, WPARAM, LPARAM);
 
 /*  Make the class name into a global variable  */
 TCHAR szClassName[] = _T("CryptoWindowsApp");
+
+
+//auto resize y axis text
+void ytxtauto() {
+    DeleteObject(yaxisfont);
+    int maxl = minpricestr.length();
+    int fsize = 20;
+    if ((int) maxpricestr.length() > maxl) {
+        maxl = maxpricestr.length();
+    }
+    if (maxl > 10) {
+        fsize = 20 - (maxl/3);
+    }
+
+    yaxisfont = CreateFont(fsize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
+        CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Arial"));
+}
+
 
 //math formatting of price string
 string prettystr(string pstr) {
@@ -673,7 +694,6 @@ void get_graph(string coin, string currency, string days) {
 
     int k = 0;
     gmin = json_dump[k].price;
-    
     gmax = json_dump[k].price;
 
     for (k = 0; k < idx; k++) {
@@ -685,8 +705,6 @@ void get_graph(string coin, string currency, string days) {
         if (json_dump[k].price < gmin) {
             gmin = json_dump[k].price;
             min_idx = k;
-            sprintf_s(outp, 200, "setting min price: %f\n", gmin);
-            OutputDebugString(outp);
         }
 
         sprintf_s(outp, 200, "item %d\n", k);
@@ -703,12 +721,15 @@ void get_graph(string coin, string currency, string days) {
     OutputDebugString(outp);
     sprintf_s(outp, 200, "min price: %f\n", gmin);
     OutputDebugString(outp);
+    //sprintf_s(outp, 200, "json_dump[min_idx].price: %f\n", json_dump[min_idx].price);
+    //OutputDebugString(outp);
+
     sprintf_s(outp, 200, "total elements in array are %d\n", ct);
     OutputDebugString(outp);
 
     //the price in each y pixel 
     gstepy =  ( (gmax-gmin)/(gheight));
-    //seconds in each x pixel for tst , for x axis (below)
+    //seconds in each x pixel for tst , for x axis 
     int gstepxs = (int)(json_dump[idx - 1].tst - json_dump[0].tst) / gwidth;
 
     for (k = 0; k <= idx; k++) {
@@ -798,11 +819,9 @@ void get_graph(string coin, string currency, string days) {
         xmap[k] = outp;
         if (k == (gwidth - 1)) {
             xmap[k + 1] = "[end]";
-            sprintf_s(outp, 200, "nidx no: %d\n", nidx);
-            OutputDebugString(outp);
             xnotch[nidx-1].label = latest_day;
             xnotch[nidx].label = "[end]";
-            OutputDebugString("finished xmap and xnotch\n");
+            //OutputDebugString("finished xmap and xnotch\n");
         }
     }
     minpricestr = (coords[min_idx].label.substr(0, coords[min_idx].label.find("@")));
@@ -812,7 +831,7 @@ void get_graph(string coin, string currency, string days) {
 void draw_graph(HDC devc) {
 
     SetTextColor(devc, RGB(120, 120, 120));
-    SelectObject(devc, axisfont);
+    SelectObject(devc, yaxisfont);
     int k = 0;
     SelectObject(devc, hilopen);
 
@@ -848,13 +867,11 @@ void draw_graph(HDC devc) {
     LineTo(devc, gx, gy - coords[max_idx].y);
     TextOut(devc, gx - notch_xpad, gy - coords[max_idx].y - 10 , maxpricestr.c_str(), maxpricestr.size());
 
+    SelectObject(devc, axisfont);
     int g = 0;
-
-
     //x axis
     MoveToEx(devc, gx , gy + ypadding + coords[min_idx].y, NULL);
     LineTo(devc, gx  + gwidth + xpadding, gy + ypadding +  coords[min_idx].y);
-    g = 0;
     for (g = 0; g < sizeof(xnotch); g++) {
         if (xnotch[g].label != "[end]") {
             //normal notches without a label
@@ -924,9 +941,10 @@ void draw_graph(HDC devc) {
     
 }
 
-int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszArgument, int nCmdShow)
+int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpszArgument, _In_ int nCmdShow)
 {
     get_graph(ids, vcs, "30");
+    ytxtauto();
     start_curl(str_price,final_url);
 
     HWND hwnd;               /* This is the handle for our window */
@@ -1223,8 +1241,11 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                 stop_curl();
                 final_url = price_url + "?ids=" + ids + "&vs_currencies=" + vcs;
                 start_curl(str_price,final_url);
+                //get data even if graph is off, so its ready if the graph is turned on
+                get_graph(ids, vcs, "30");
+                //adjust text size according to number of digits in price
+                ytxtauto();
                 if (gstatus != 0) {
-                    get_graph(ids, vcs, "30");
                     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
                 }
 
@@ -1236,8 +1257,10 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                 stop_curl();
                 final_url = price_url + "?ids=" + ids + "&vs_currencies=" + vcs;
                 start_curl(str_price, final_url);
+                //get data even if graph is off, so its ready if the graph is turned on
+                get_graph(ids, vcs, "30");
+                ytxtauto();
                 if (gstatus != 0) {
-                    get_graph(ids, vcs, "30");
                     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
                 }
 
