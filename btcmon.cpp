@@ -365,7 +365,7 @@ int xpadding = 10;
 int notch_xpad = 100;
 int notch_ypad = 100;
 int gheight = 400;
-int gwidth = 600;
+int gwidth = 800;
 int gstatus = 0;
 
 bool mouse_over_graph = false;
@@ -957,7 +957,7 @@ void draw_graph(HDC devc) {
 
 int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpszArgument, _In_ int nCmdShow)
 {
-    get_graph(ids, vcs, "7");
+    get_graph(ids, vcs, "30");
     ytxtauto();
     start_curl(str_price,final_url);
 
@@ -1256,7 +1256,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                 final_url = price_url + "?ids=" + ids + "&vs_currencies=" + vcs;
                 start_curl(str_price,final_url);
                 //get data even if graph is off, so its ready if the graph is turned on
-                get_graph(ids, vcs, "7");
+                get_graph(ids, vcs, "30");
                 //adjust text size according to number of digits in price
                 ytxtauto();
                 if (gstatus != 0) {
@@ -1272,7 +1272,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                 final_url = price_url + "?ids=" + ids + "&vs_currencies=" + vcs;
                 start_curl(str_price, final_url);
                 //get data even if graph is off, so its ready if the graph is turned on
-                get_graph(ids, vcs, "7");
+                get_graph(ids, vcs, "30");
                 ytxtauto();
                 if (gstatus != 0) {
                     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
