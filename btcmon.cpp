@@ -754,18 +754,26 @@ void get_graph(string coin, string currency, string days) {
     //sprintf_s(outp, 200, "total elements in array are %d\n", ct);
     //OutputDebugString(outp);
 
+    
+
+
     //the price in each y pixel 
     gstepy =  ( (gmax-gmin)/(gheight));
     //seconds in each x pixel for tst , for x axis 
-    int gstepxs = (int)(json_dump[idx - 1].tst - json_dump[0].tst) / gwidth;
-
+    int gstepxs = 1; // done to avoid IDE warnings
+    if (idx > 0) { // done to avoid IDE warnings
+        gstepxs = (int)(json_dump[idx - 1].tst - json_dump[0].tst) / gwidth;
+    }
+    
     for (k = 0; k <= idx; k++) {
         if (k == idx) {
             coords[k].label = "[end]";
             //the last x coord is the graph width
             //nb: this can only be done right at the end, because gwidth is 
             //used to calculate the hours in each xpixel
-            gwidth = coords[k-1].x;
+            if (k > 0) {//this is done purely to avoid IDE warnings
+                gwidth = coords[k - 1].x;
+            }
         }
         else {
             //arbitrary number to make it small enough to fit the window
@@ -797,15 +805,27 @@ void get_graph(string coin, string currency, string days) {
     }
 
     //the time and date for each x axis pixel is stored in xmap
-    char latest_day[200] = "";
-    char current_day[200] = "";
+    int last_date = 0;
+    int current_date = 0;
     int nidx = 0;
     //how many times the x axis will be divided into labeled notches
     int xdivs = 3;
-    int xdstep = (int)(stoi(days) / xdivs);
+    int xdstep;
+    if ((days == "7") || (days == "30")) {
+        xdstep = (int)(stoi(days) / xdivs);
+    }
+    if (days == "365") {
+        xdstep = (int)(12 / xdivs);
+    }
+    if (days == "1") {
+        xdstep = (int)(24 / xdivs);
+    }
 
-    sprintf_s(outp, 200, "gstepxs: %d\n", gstepxs);
-    OutputDebugString(outp);
+    //clean xnotch array - otherwise it will mess up if its not the first use
+    for (k = 0; k < 1300; k++) {
+        xnotch[k].coord = 0;
+        xnotch[k].label = "";
+    }
 
     for (k = 0; k < gwidth; k++) {
         //sprintf_s(outp, 200, "iteration no: %d\n", k);
@@ -814,38 +834,82 @@ void get_graph(string coin, string currency, string days) {
         rawtime = (const time_t)tst;
         localtime_s(&timeinfo, &rawtime);
         if (k == 0) {
-            strftime(latest_day, sizeof(latest_day), "%d %b", &timeinfo);
+            //if looking at one year then only go month by month - if 7/30d day by day - if 24h hour by hour
+            if ((days == "7") || (days=="30")) {
+                last_date = timeinfo.tm_mday;
+            }
+            if (days == "365") {
+                last_date = timeinfo.tm_mon;
+            }
+            if (days == "1") {
+                last_date = timeinfo.tm_hour;
+            }
         }
         else {
-            strftime(current_day, sizeof(current_day), "%d %b", &timeinfo);
-            //OutputDebugString(current_day);
-            //OutputDebugString("\n");
-            if (strcmp(latest_day,current_day)!=0) {
+            if ((days == "7") || (days == "30")) {
+                current_date = timeinfo.tm_mday;
+            }
+            if (days == "365") {
+                current_date = timeinfo.tm_mon;
+            }
+            if (days == "1") {
+                current_date = timeinfo.tm_hour;
+            }
+            if (last_date != current_date) {
                 //date has changed, add a notch on x axis
                 xnotch[nidx].coord = k;
+                
+                if ((days == "7") || (days == "30")) {
+                    strftime(outp, sizeof(outp), "%d %b", &timeinfo);
+                }
+                if (days == "365") {
+                    strftime(outp, sizeof(outp), "%d %b '%y", &timeinfo);
+                }
+                if (days == "1") {
+                    //should be %H:%M but its rounded to 00 because sometimes it comes out as :01 or :02
+                    strftime(outp, sizeof(outp), "%H:00 %d %b", &timeinfo);
+                }
                 //the first and last notches are always labeled + larger
                 if (nidx == 0) {
-                    xnotch[nidx].label = current_day;
+                    xnotch[nidx].label = outp;
                 }
                 else {
                     //labeled notches between first and last (based on xdivs)
                     int xd = 1;
                     for (xd = 1; xd <= xdivs; xd++) {
                         if (nidx == (xd * xdstep)) {
-                            xnotch[nidx].label = current_day;
+                            xnotch[nidx].label = outp;
                             break;
                         }
                     }
                 }
                 nidx++;
-                strftime(latest_day, sizeof(latest_day), "%d %b", &timeinfo);
+                if ((days == "7") || (days == "30")) {
+                    last_date = timeinfo.tm_mday;
+                }
+                if (days == "365") {
+                    last_date = timeinfo.tm_mon;
+                }
+                if (days == "1") {
+                    last_date = timeinfo.tm_hour;
+                }
             }
         }
+
         strftime(outp, sizeof(outp), "%H:%M %d %b", &timeinfo);
         xmap[k] = outp;
         if (k == (gwidth - 1)) {
             xmap[k + 1] = "[end]";
-            xnotch[nidx-1].label = latest_day;
+            if ((days == "7") || (days == "30")) {
+                strftime(outp, sizeof(outp), "%d %b", &timeinfo);
+            }
+            if (days == "365") {
+                strftime(outp, sizeof(outp), "%d %b '%y", &timeinfo);
+            }
+            if (days == "1") {
+                strftime(outp, sizeof(outp), "%H:00 %d %b", &timeinfo);
+            }
+            xnotch[nidx-1].label = outp;
             xnotch[nidx].label = "[end]";
             //OutputDebugString("finished xmap and xnotch\n");
         }
