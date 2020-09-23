@@ -413,7 +413,7 @@ string ids = coins[init_coin][0];
 string vcs = currencies[init_curr];
 string price_url = "https://api.coingecko.com/api/v3/simple/price";
 string final_url = price_url + "?ids=" + ids + "&vs_currencies=" + vcs;
-
+string api_days[4] = {"1","7","30","365"};
 
 
 //update every n milliseconds
@@ -504,8 +504,20 @@ void stop_curl() {
 
 void get_graph(string coin, string currency, string days) {
 
+
+    //api elements for 30d: 722 (hourly), 7d: 168 (hourly), 1d : 287 (5 minutely) 
     //0 for high-low, 0< no. of hourly intervals, e.g. every 4 hours
+    
     int mode = 4;
+    if (days=="30"){
+        mode = 4;
+    }
+    if (days == "7") {
+        mode = 1;
+    }
+    if (days == "1") {
+        mode = 2;
+    }
     string url;
     string raw;
     string elmnt;
@@ -957,8 +969,7 @@ void draw_graph(HDC devc) {
 
 int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpszArgument, _In_ int nCmdShow)
 {
-    get_graph(ids, vcs, "30");
-    ytxtauto();
+
     start_curl(str_price,final_url);
 
     HWND hwnd;               /* This is the handle for our window */
@@ -1039,9 +1050,10 @@ int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstanc
     SendMessage(hWndGRAPHComboBox, WM_SETFONT, WPARAM(mainfont), TRUE);
     // Add strings to combobox.
     SendMessage(hWndGRAPHComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, reinterpret_cast<LPARAM>("off"));
-    SendMessage(hWndGRAPHComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, reinterpret_cast<LPARAM>("24h"));
-    SendMessage(hWndGRAPHComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, reinterpret_cast<LPARAM>("1 month"));
-    SendMessage(hWndGRAPHComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, reinterpret_cast<LPARAM>("1 year"));
+    SendMessage(hWndGRAPHComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, reinterpret_cast<LPARAM>("24H"));
+    SendMessage(hWndGRAPHComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, reinterpret_cast<LPARAM>("7D"));
+    SendMessage(hWndGRAPHComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, reinterpret_cast<LPARAM>("30D"));
+    SendMessage(hWndGRAPHComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, reinterpret_cast<LPARAM>("1Y"));
     // Send the CB_SETCURSEL message to display an initial item (WPARAM)
     SendMessage(hWndGRAPHComboBox, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 
@@ -1247,40 +1259,36 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
             int ItemIndex = SendMessage((HWND)lParam, (UINT)CB_GETCURSEL, (WPARAM)0, (LPARAM)0);
             //TCHAR  ListItem[256];
             //(TCHAR)SendMessage((HWND)lParam, (UINT)CB_GETLBTEXT, (WPARAM)ItemIndex, (LPARAM)ListItem);
-            
-            if (LOWORD(wParam) == CRRC) {
-                //MessageBox(hwnd, currencies[ItemIndex], final_url.c_str(), MB_OK);
-                //ids = "bitcoin";
-                vcs = currencies[ItemIndex];
-                stop_curl();
-                final_url = price_url + "?ids=" + ids + "&vs_currencies=" + vcs;
-                start_curl(str_price,final_url);
-                //get data even if graph is off, so its ready if the graph is turned on
-                get_graph(ids, vcs, "30");
-                //adjust text size according to number of digits in price
-                ytxtauto();
-                if (gstatus != 0) {
-                    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+
+            if ((LOWORD(wParam) == COIN) || (LOWORD(wParam) == CRRC)) {
+
+                if (LOWORD(wParam) == CRRC) {
+                    //ids = "bitcoin";
+                    vcs = currencies[ItemIndex];
+                }
+                if (LOWORD(wParam) == COIN) {
+                    ids = coins[ItemIndex][0];
+                    //vcs = currencies[ItemIndex];
                 }
 
-            }
-            if (LOWORD(wParam) == COIN) {
-                //MessageBox(hwnd, currencies[ItemIndex], final_url.c_str(), MB_OK);
-                ids = coins[ItemIndex][0];
-                //vcs = currencies[ItemIndex];
                 stop_curl();
                 final_url = price_url + "?ids=" + ids + "&vs_currencies=" + vcs;
                 start_curl(str_price, final_url);
                 //get data even if graph is off, so its ready if the graph is turned on
-                get_graph(ids, vcs, "30");
+                get_graph(ids, vcs, api_days[(gstatus-1)]);
                 ytxtauto();
                 if (gstatus != 0) {
                     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
                 }
 
             }
+
             if (LOWORD(wParam) == GRAPH) {
                 gstatus = ItemIndex;
+                if (gstatus != 0) {
+                    get_graph(ids, vcs, api_days[(gstatus - 1)]);
+                    ytxtauto();
+                }
                 RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
             }
 
