@@ -1,9 +1,18 @@
 # btcmon - super small cryptocurrency monitor
 
-This is a super small (<500KB on disk, 1.5MB in RAM) windows app to show you the live price of any crypto pair. <br><br>
-It pulls it from https://api.cryptowat.ch/markets/coinbase-pro/btcusd/price  <br>
+This is a super small (<600KB on disk, 2.5MB in RAM) windows app to show you the live price of any crypto pair. <br><br>
 
-The price is set as the window title text, including when minimized on the taskbar <br>
+![alt text](https://github.com/hack-tramp/btcmon/blob/master/screen2.jpg)
+
+- supports 50+ currencies and 200+ crypto coins<br>
+- graph for last 24 hours, week, month or year<br>
+- price is set as the window title text, including when minimized on the taskbar <br>
+
+![alt text](https://github.com/hack-tramp/btcmon/blob/master/screen4.jpg)
+
+data is from https://www.coingecko.com/en/api  <br>
+
+
 
 <b>Why?</b>
 (other than 'I got bored')
@@ -15,7 +24,5 @@ cryptowat.ch on a browser > 20MB (just for that tab)  <br>
 <b>Compiling</b>
 
 <b>Required libraries:</b><br>
-<b>cpr</b> (https://whoshuu.github.io/cpr/) - see btcmon-cpr.cpp<br>
-or<br>
-<b>curl</b> (https://curl.haxx.se/libcurl/) - see btcmon.cpp
+<b>curl</b> (https://curl.haxx.se/libcurl/) 
 
