@@ -368,6 +368,14 @@ int gheight = 400;
 int gwidth = 800;
 int gstatus = 0;
 
+//dimensions when graph is off/on
+int wgoff = 600;
+int hgoff = 100;
+int wgon = 1024;
+int hgon = 600;
+int window_width = wgoff;
+int window_height = hgoff;
+
 bool mouse_over_graph = false;
 //whether mouse is over/close to a graph coord
 int cfocus = -1;
@@ -754,9 +762,7 @@ void get_graph(string coin, string currency, string days) {
     //sprintf_s(outp, 200, "total elements in array are %d\n", ct);
     //OutputDebugString(outp);
 
-    
-
-
+ 
     //the price in each y pixel 
     gstepy =  ( (gmax-gmin)/(gheight));
     //seconds in each x pixel for tst , for x axis 
@@ -1068,8 +1074,8 @@ int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstanc
         WS_OVERLAPPEDWINDOW, /* default window */
         CW_USEDEFAULT,       /* Windows decides the position */
         CW_USEDEFAULT,       /* where the window ends up on the screen */
-        1024,                 /* The programs width */
-        600,                 /* and height in pixels */
+        window_width,                 /* The programs width */
+        window_height,                 /* and height in pixels */
         HWND_DESKTOP,        /* The window is a child-window to desktop */
         NULL,                /* No menu */
         hThisInstance,       /* Program Instance handler */
@@ -1200,7 +1206,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
             mouse_dx = mouse_x - old_mouse_x;
             mouse_dy = mouse_y - old_mouse_y;
 
-            if ((mouse_x > gx) & (mouse_x < (gx + gwidth + xpadding )) & (mouse_y > (gy - gheight - ypadding)) & (mouse_y< (gy + ypadding) )) {
+            if ((mouse_x > gx) & (mouse_x < (gx + gwidth )) & (mouse_y > (gy - gheight - ypadding)) & (mouse_y< (gy + ypadding) )) {
                 if (!mouse_over_graph) {
                     mouse_over_graph = true;
                     SetCursor(cross);
@@ -1348,10 +1354,23 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
             }
 
             if (LOWORD(wParam) == GRAPH) {
+                
                 gstatus = ItemIndex;
                 if (gstatus != 0) {
+                    if (window_height != hgon) {//if we turned on the graph, then expand the window
+                        window_height = hgon;
+                        window_width = wgon;
+                        SetWindowPos(hwnd, 0, 0, 0, window_width, window_height, SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
+                    }
                     get_graph(ids, vcs, api_days[(gstatus - 1)]);
                     ytxtauto();
+                }
+                else {
+                    if (window_height != hgoff) {//if we turned on the graph, then reduce the window
+                        window_height = hgoff;
+                        window_width = wgoff;
+                        SetWindowPos(hwnd, 0, 0, 0, window_width, window_height, SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
+                    }
                 }
                 RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
             }
