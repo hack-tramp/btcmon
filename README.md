@@ -12,15 +12,6 @@ This is a super small (<600KB on disk, 2.5MB in RAM) windows app to show you the
 
 data is from https://www.coingecko.com/en/api  <br>
 
-
-
-<b>Why?</b>
-(other than 'I got bored')
-
-RAM usage:<br>
-this app < 2MB <br>
-cryptowat.ch on a browser > 20MB (just for that tab)  <br>
-
 <b>Compiling</b>
 
 <b>Required libraries:</b><br>
