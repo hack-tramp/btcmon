@@ -1,6 +1,6 @@
 # btcmon - super small cryptocurrency monitor
 
-This is a super small (<600KB on disk, 2.5MB in RAM) windows app to show you the live price of any crypto pair. <br><br>
+super small (<600KB on disk, 2.5MB in RAM) windows app <br><br>
 
 ![alt text](https://github.com/hack-tramp/btcmon/blob/master/screen2.jpg)
 
