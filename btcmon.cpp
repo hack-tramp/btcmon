@@ -9,12 +9,17 @@
 
 using namespace std;
 
-HPEN blackpen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
 HPEN axespen = CreatePen(PS_SOLID, 2, RGB(200, 200, 200));
 HPEN hilopen = CreatePen(PS_SOLID, 3, RGB(255, 204, 255));
-HPEN bluepen = CreatePen(PS_SOLID, 1, RGB(100, 100, 255));
 
-HBRUSH bgr = CreateSolidBrush(RGB(255, 255, 255));
+COLORREF bkg = RGB(100, 100, 100);
+COLORREF axis_text = RGB(160, 160, 160);
+COLORREF coord_text = RGB(0, 0, 0);
+COLORREF price_text_netural = RGB(200, 200, 200);
+COLORREF price_text_up = RGB(0, 200, 0);
+COLORREF price_text_down = RGB(200, 0, 0);
+
+HBRUSH bgr = CreateSolidBrush(bkg);
 
 HCURSOR cross = LoadCursor(NULL, IDC_CROSS);
 HCURSOR arrow = LoadCursor(NULL, IDC_ARROW);
@@ -376,7 +381,7 @@ int gwidth = 800;
 int gstatus = 0;
 
 //dimensions when graph is off/on
-int wgoff = 600;
+int wgoff = 500;
 int hgoff = 100;
 int wgon = 1024;
 int hgon = 600;
@@ -928,12 +933,11 @@ void get_graph(string coin, string currency, string days) {
 
 void draw_graph(HDC devc) {
 
-    SetTextColor(devc, RGB(120, 120, 120));
+    SetTextColor(devc, axis_text);
     SelectObject(devc, yaxisfont);
     int k = 0;
     int px = 0;
     
-
 
     //draw graph fading background
     int x_init = gx;
@@ -942,16 +946,16 @@ void draw_graph(HDC devc) {
     int y_init = gy - coords[max_idx].y - ypadding;
     //bottom
     int y_end = gy + coords[min_idx].y + ypadding;
-    int col = 230;
+    int col = 100;
     int color_count = 0;
     SelectObject(devc, GetStockObject(DC_PEN));
     SetDCPenColor(devc, RGB(col, col, col));
 
     for (k = y_init; k <= y_end; k++) {
         color_count++;
-        if (color_count > 2) {
-            if (col > 80) {
-                col-=1;
+        if (color_count > 3) {
+            if (col < 200) {
+                col+=1;
                 SetDCPenColor(devc, RGB(col, col, col));
             }
             color_count = 0;
@@ -959,6 +963,8 @@ void draw_graph(HDC devc) {
         MoveToEx(devc, x_init, k, NULL);
         LineTo(devc, x_end,k);
     }
+
+
 
     SelectObject(devc, hilopen);
     //draw graph lines
@@ -980,7 +986,7 @@ void draw_graph(HDC devc) {
     
     //draw axes
     SelectObject(devc, axespen);
-
+    
     //y axis
     MoveToEx(devc, gx , gy + coords[min_idx].y + ypadding, NULL);
     LineTo(devc, gx , gy  - coords[max_idx].y - ypadding);
@@ -1034,7 +1040,7 @@ void draw_graph(HDC devc) {
             }
         }
     }
-
+    
     //mouse over graph
     if (mouse_over_graph) {
         if (cfocus!=-1) {
@@ -1046,7 +1052,11 @@ void draw_graph(HDC devc) {
             if (cfocus_y_final < (gy - coords[max_idx].y + 50)) {
                 cfocus_y_final += 10;
             }
+            SetBkMode(devc, TRANSPARENT);
+            SetTextColor(devc, coord_text);
             TextOut(devc, cfocus_x_final, cfocus_y_final, coords[cfocus].label.c_str(), coords[cfocus].label.size());
+            SetBkMode(devc, OPAQUE);
+            SetTextColor(devc, axis_text);
         }
         else {
             //horizontal line
@@ -1062,7 +1072,7 @@ void draw_graph(HDC devc) {
 
         }
     }
-
+    
     SetTextColor(devc, RGB(0, 0, 0));
     SelectObject(devc, mainfont);
     
@@ -1120,7 +1130,7 @@ int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstanc
 
     HWND hWndComboBox = CreateWindow(WC_COMBOBOX, TEXT(""),
         CBS_DROPDOWN | CBS_HASSTRINGS | CBS_AUTOHSCROLL | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE | WS_VSCROLL,
-        180, 10, 55, 300, hwndParent, (HMENU) CRRC, hThisInstance, NULL);
+        160, 15, 55, 300, hwndParent, (HMENU) CRRC, hThisInstance, NULL);
     SendMessage(hWndComboBox, WM_SETFONT, WPARAM(mainfont), TRUE);
     int  k = 0;
     for (k = 0; k < (sizeof(currencies) / sizeof(*currencies)); k ++)
@@ -1134,7 +1144,7 @@ int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstanc
 
     HWND hWndCOINComboBox = CreateWindow(WC_COMBOBOX, TEXT(""),
         CBS_DROPDOWN | CBS_HASSTRINGS | CBS_AUTOHSCROLL | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE | WS_VSCROLL,
-        260, 10, 100, 300, hwndParent, (HMENU)COIN, hThisInstance, NULL);
+        240, 15, 100, 300, hwndParent, (HMENU)COIN, hThisInstance, NULL);
     SendMessage(hWndCOINComboBox, WM_SETFONT, WPARAM(mainfont), TRUE);
     k = 0;
     for (k = 0; k < (sizeof(coins) / sizeof(*coins)); k++)
@@ -1147,7 +1157,7 @@ int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstanc
 
     HWND hWndGRAPHComboBox = CreateWindow(WC_COMBOBOX, TEXT(""),
         CBS_DROPDOWN | CBS_HASSTRINGS | CBS_AUTOHSCROLL | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE | WS_VSCROLL,
-        450, 10, 70, 300, hwndParent, (HMENU)GRAPH, hThisInstance, NULL);
+        405, 15, 70, 300, hwndParent, (HMENU)GRAPH, hThisInstance, NULL);
     SendMessage(hWndGRAPHComboBox, WM_SETFONT, WPARAM(mainfont), TRUE);
     // Add strings to combobox.
     SendMessage(hWndGRAPHComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, reinterpret_cast<LPARAM>("off"));
@@ -1188,14 +1198,19 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
     HBITMAP     hbmMem;
     HANDLE      hOld;
     RECT clientRect;
+    RECT price_update;
+    price_update.left = 15;
+    price_update.top = 0;
+    price_update.right = 155;
+    price_update.bottom = 90;
     HRGN bgRgn;
+    HDC hdcStatic;
+    HBRUSH hbrBkgnd = NULL;
 
     switch (message)                 
     {
     case WM_DESTROY:
         stop_curl();
-        DeleteObject(blackpen);
-        DeleteObject(bluepen);
         KillTimer(hwnd, 1);
         PostQuitMessage(0);      
         break;
@@ -1211,29 +1226,31 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
         GetClientRect(hwnd, &clientRect);
         bgRgn = CreateRectRgnIndirect(&clientRect);
         FillRgn(hdc, bgRgn, bgr);
+        SetBkColor(hdc, bkg);
 
         SelectObject(hdc, mainfont);
         //:1
-        TextOut(hdc, 240, 12, coinptr, coin_sz);
+        TextOut(hdc, 220, 17, coinptr, coin_sz);
         //graph:
-        TextOut(hdc, 400, 12, glabelptr, glabelsz);
+        TextOut(hdc, 355, 17, glabelptr, glabelsz);
 
         if (gstatus != 0) {
             draw_graph(hdc);
         }
 
+        SetTextColor(hdc, price_text_netural);
         if (cur_price > old_price) {
-            SetTextColor(hdc, RGB(0, 200, 0));
+            SetTextColor(hdc, price_text_up);
         }
         else {
             if (cur_price < old_price) {
-                SetTextColor(hdc, RGB(200, 0, 0));
+                SetTextColor(hdc, price_text_down);
             }
         }
         
         SelectObject(hdc, pricefont);
         //price
-        TextOut(hdc, 15, 8, str_price.c_str(), str_price.size());
+        TextOut(hdc, 15, 10, str_price.c_str(), str_price.size());
 
 
         // Transfer the off-screen DC to the screen
@@ -1398,10 +1415,10 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                 stop_curl();
                 final_url = price_url + "?ids=" + ids + "&vs_currencies=" + vcs;
                 start_curl(str_price, final_url);
-                //get data even if graph is off, so its ready if the graph is turned on
-                get_graph(ids, vcs, api_days[(gstatus-1)]);
-                ytxtauto();
+                //get data and draw if graph is on
                 if (gstatus != 0) {
+                    get_graph(ids, vcs, api_days[(gstatus-1)]);
+                    ytxtauto();
                     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE );
                 }
 
@@ -1436,6 +1453,18 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
         }
         break;
 
+    //use this to color the combo boxes
+    case WM_CTLCOLOREDIT:
+
+        hdcStatic = (HDC)wParam;
+        SetTextColor(hdcStatic, RGB(200, 200, 200));
+        SetBkColor(hdcStatic, RGB(50, 50, 50));
+        if (hbrBkgnd == NULL)
+        {
+            hbrBkgnd = CreateSolidBrush(RGB(0, 0, 0));
+        }
+        return (INT_PTR)hbrBkgnd;
+
     case WM_ERASEBKGND:
         return 1;
 
@@ -1453,7 +1482,8 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
             cur_price = stod(str_price);
             str_price = prettystr(str_price);
             SetWindowText(hwnd, str_price.c_str());
-            RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE );
+            RedrawWindow(hwnd, &price_update, NULL, RDW_INVALIDATE );
+
             return 0;
         }
     default:                      /* for messages that we don't deal with */
