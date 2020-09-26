@@ -9,6 +9,8 @@
 
 using namespace std;
 
+HBRUSH bgr = CreateSolidBrush(RGB(255, 255, 255));
+
 HCURSOR cross = LoadCursor(NULL, IDC_CROSS);
 HCURSOR arrow = LoadCursor(NULL, IDC_ARROW);
 
@@ -1060,9 +1062,9 @@ int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstanc
     wincl.lpszMenuName = NULL;                 /* No menu */
     wincl.cbClsExtra = 0;                      /* No extra bytes after the window class */
     wincl.cbWndExtra = 0;                      /* structure or the window instance */
-    /* Use Windows's default colour as the background of the window */
-    wincl.hbrBackground = CreateSolidBrush(RGB(255, 255, 255));
-
+    /* background of the window */
+    wincl.hbrBackground = bgr;
+    
     /* Register the window class, and if it fails quit the program */
     if (!RegisterClassEx(&wincl))
         return 0;
@@ -1082,7 +1084,7 @@ int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstanc
         NULL                 /* No Window Creation data */
     );
 
-
+    
     HWND hwndParent = hwnd; // Handle to the parent window
 
     //combo boxes: currency, coin, graph
@@ -1152,8 +1154,13 @@ int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstanc
 LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     PAINTSTRUCT ps;
-    HDC hdc;
-    HGDIOBJ cpen = NULL;
+    HDC hdc; 
+    HDC live;
+    HBITMAP     hbmMem;
+    HANDLE      hOld;
+    RECT clientRect;
+    HRGN bgRgn;
+
     switch (message)                 
     {
     case WM_DESTROY:
@@ -1165,9 +1172,17 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
         break;
     case WM_PAINT:
 
-        hdc = BeginPaint(hwnd, &ps);
+        live = BeginPaint(hwnd, &ps);
+        // Create an off-screen DC for double-buffering
+        hdc = CreateCompatibleDC(live);
+        hbmMem = CreateCompatibleBitmap(live, window_width, window_height);
+        hOld = SelectObject(hdc, hbmMem);
 
-        
+        //temporary hack - to make bitmap background white
+        GetClientRect(hwnd, &clientRect);
+        bgRgn = CreateRectRgnIndirect(&clientRect);
+        FillRgn(hdc, bgRgn, bgr);
+
         SelectObject(hdc, mainfont);
         //:1
         TextOut(hdc, 240, 12, coinptr, coin_sz);
@@ -1191,6 +1206,16 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
         //price
         TextOut(hdc, 15, 8, str_price.c_str(), str_price.size());
 
+
+        // Transfer the off-screen DC to the screen
+        BitBlt(live, 0, 0, window_width, window_height, hdc, 0, 0, SRCCOPY);
+
+        // Free-up the off-screen DC
+        SelectObject(hdc, hOld);
+
+        DeleteObject(hbmMem);
+        DeleteDC(hdc);
+        DeleteObject(bgRgn);
         EndPaint(hwnd, &ps);
         break;
 
@@ -1299,7 +1324,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                 //TextOut(devc, gx - notch_xpad, mouse_y);
                 HRGN upd_r = CreatePolygonRgn(upd, 11, WINDING);
                 //UpdateWindow(hwnd);
-                RedrawWindow(hwnd, NULL, upd_r, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+                RedrawWindow(hwnd, NULL, upd_r, RDW_INVALIDATE);
                 //UpdateWindow(hwnd);
                 DeleteObject(upd_r);
                 
@@ -1308,7 +1333,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                 if (mouse_over_graph) {
                     //OutputDebugString("just left graph\n");
                     mouse_over_graph = false;
-                    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+                    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE );
                 }
             }
         }
@@ -1348,7 +1373,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                 get_graph(ids, vcs, api_days[(gstatus-1)]);
                 ytxtauto();
                 if (gstatus != 0) {
-                    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+                    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE );
                 }
 
             }
@@ -1372,7 +1397,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                         SetWindowPos(hwnd, 0, 0, 0, window_width, window_height, SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
                     }
                 }
-                RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+                RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE );
             }
 
             //MessageBox(hwnd, ListItem, Pairs[ItemIndex][1], MB_OK);
@@ -1381,6 +1406,10 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
             
         }
         break;
+
+    case WM_ERASEBKGND:
+        return 1;
+
     case WM_TIMER:
         switch (wParam)
         {
@@ -1395,7 +1424,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
             cur_price = stod(str_price);
             str_price = prettystr(str_price);
             SetWindowText(hwnd, str_price.c_str());
-            RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
+            RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE );
             return 0;
         }
     default:                      /* for messages that we don't deal with */
