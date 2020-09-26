@@ -9,6 +9,11 @@
 
 using namespace std;
 
+HPEN blackpen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+HPEN axespen = CreatePen(PS_SOLID, 2, RGB(200, 200, 200));
+HPEN hilopen = CreatePen(PS_SOLID, 3, RGB(255, 204, 255));
+HPEN bluepen = CreatePen(PS_SOLID, 1, RGB(100, 100, 255));
+
 HBRUSH bgr = CreateSolidBrush(RGB(255, 255, 255));
 
 HCURSOR cross = LoadCursor(NULL, IDC_CROSS);
@@ -411,13 +416,8 @@ int glabelsz = glabel.size();
 LPCSTR glabelptr = glabel.c_str();
 
 
-HPEN blackpen = CreatePen(PS_SOLID,2,RGB(0,0,0));
-HPEN axespen = CreatePen(PS_SOLID, 2, RGB(200, 200, 200));
-HPEN hilopen = CreatePen(PS_SOLID, 1, RGB(150, 150, 150));
-HPEN bluepen = CreatePen(PS_SOLID, 1, RGB(100, 100, 255));
-HPEN outerbluepen1 = CreatePen(PS_SOLID, 2, RGB(120, 120, 255));
-HPEN outerbluepen2 = CreatePen(PS_SOLID, 4, RGB(200, 200, 255));
-HPEN outerbluepen3 = CreatePen(PS_SOLID, 8, RGB(220, 220, 255));
+
+
 
 string ids = coins[init_coin][0];
 string vcs = currencies[init_curr];
@@ -931,8 +931,37 @@ void draw_graph(HDC devc) {
     SetTextColor(devc, RGB(120, 120, 120));
     SelectObject(devc, yaxisfont);
     int k = 0;
-    SelectObject(devc, hilopen);
+    int px = 0;
+    
 
+
+    //draw graph fading background
+    int x_init = gx;
+    int x_end = gx + gwidth + xpadding;
+    //top
+    int y_init = gy - coords[max_idx].y - ypadding;
+    //bottom
+    int y_end = gy + coords[min_idx].y + ypadding;
+    int col = 230;
+    int color_count = 0;
+    SelectObject(devc, GetStockObject(DC_PEN));
+    SetDCPenColor(devc, RGB(col, col, col));
+
+    for (k = y_init; k <= y_end; k++) {
+        color_count++;
+        if (color_count > 2) {
+            if (col > 80) {
+                col-=1;
+                SetDCPenColor(devc, RGB(col, col, col));
+            }
+            color_count = 0;
+        }
+        MoveToEx(devc, x_init, k, NULL);
+        LineTo(devc, x_end,k);
+    }
+
+    SelectObject(devc, hilopen);
+    //draw graph lines
     for (k = 0; k < sizeof(coords); k++) {
         if (coords[k].label == "[end]") {
             break;
