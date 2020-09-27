@@ -10,11 +10,13 @@
 using namespace std;
 
 HPEN axespen = CreatePen(PS_SOLID, 2, RGB(200, 200, 200));
+HPEN axes_dots = CreatePen(PS_DASHDOTDOT, 1, RGB(200, 200, 200));
 HPEN hilopen = CreatePen(PS_SOLID, 3, RGB(255, 204, 255));
 
 COLORREF bkg = RGB(100, 100, 100);
 COLORREF axis_text = RGB(160, 160, 160);
 COLORREF coord_text = RGB(0, 0, 0);
+COLORREF top_text = RGB(200, 200, 200);
 COLORREF price_text_netural = RGB(200, 200, 200);
 COLORREF price_text_up = RGB(0, 200, 0);
 COLORREF price_text_down = RGB(200, 0, 0);
@@ -441,6 +443,8 @@ LRESULT CALLBACK WindowProcedure(HWND, UINT, WPARAM, LPARAM);
 TCHAR szClassName[] = _T("CryptoWindowsApp");
 
 
+
+
 //auto resize y axis text
 void ytxtauto() {
     DeleteObject(yaxisfont);
@@ -458,7 +462,23 @@ void ytxtauto() {
 }
 
 
+
+//auto resize price text
+void price_txt_auto() {
+    DeleteObject(pricefont);
+    int pl = str_price.length();
+    int fsize = 34;
+    if (pl > 10) {
+        fsize = fsize - (pl / 3);
+    }
+
+    pricefont = CreateFont(fsize, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
+        CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Arial"));
+
+}
+
 //math formatting of price string
+
 string prettystr(string pstr) {
     string outstr = "";
     bool dec = false;
@@ -489,6 +509,17 @@ string prettystr(string pstr) {
                 outstr = pstr.substr(c, 1) + outstr;
             }
         }
+    }
+
+    int length_trigger = 9;
+
+    if (outstr.length() < length_trigger) {
+        string tmpstr = "";
+        for (int c = 0; c < (length_trigger - outstr.length() +3); c++) {
+            tmpstr += " ";
+        }
+        outstr = tmpstr + outstr;
+
     }
     return outstr;
 }
@@ -939,7 +970,7 @@ void draw_graph(HDC devc) {
     int px = 0;
     
 
-    //draw graph fading background
+    //draw graph fading background color
     int x_init = gx;
     int x_end = gx + gwidth + xpadding;
     //top
@@ -954,7 +985,7 @@ void draw_graph(HDC devc) {
     for (k = y_init; k <= y_end; k++) {
         color_count++;
         if (color_count > 3) {
-            if (col < 200) {
+            if (col < 150) {
                 col+=1;
                 SetDCPenColor(devc, RGB(col, col, col));
             }
@@ -965,26 +996,15 @@ void draw_graph(HDC devc) {
     }
 
 
-
-    SelectObject(devc, hilopen);
-    //draw graph lines
-    for (k = 0; k < sizeof(coords); k++) {
-        if (coords[k].label == "[end]") {
-            break;
-        }
-        else {
-            //SetPixelV(devc, gx+coords[k].x, gy+coords[k].y, RGB(0, 0, 0));
-            if (k == 0) {
-                MoveToEx(devc, gx + coords[k].x, gy - coords[k].y, NULL);
-            }
-            else {
-                LineTo(devc, gx + coords[k].x, gy - coords[k].y);
-            }
-            
-        }
-    }
-    
+    SetBkMode(devc, TRANSPARENT);
     //draw axes
+
+    //y axis dotted lines
+    SelectObject(devc, axes_dots);
+    MoveToEx(devc, gx , gy - coords[max_idx].y, NULL);
+    LineTo(devc, gx + gwidth + xpadding, gy - coords[max_idx].y);
+    MoveToEx(devc, gx, gy - coords[min_idx].y, NULL);
+    LineTo(devc, gx + gwidth + xpadding, gy - coords[min_idx].y);
     SelectObject(devc, axespen);
     
     //y axis
@@ -996,15 +1016,20 @@ void draw_graph(HDC devc) {
     LineTo(devc, gx , gy - coords[min_idx].y);
     TextOut(devc, gx - notch_xpad, gy - coords[min_idx].y - 10, minpricestr.c_str(), minpricestr.size());
 
+
     MoveToEx(devc, gx - 20, gy - coords[max_idx].y, NULL);
     LineTo(devc, gx, gy - coords[max_idx].y);
     TextOut(devc, gx - notch_xpad, gy - coords[max_idx].y - 10 , maxpricestr.c_str(), maxpricestr.size());
+
+
 
     SelectObject(devc, axisfont);
     int g = 0;
     //x axis
     MoveToEx(devc, gx , gy + ypadding + coords[min_idx].y, NULL);
     LineTo(devc, gx  + gwidth + xpadding, gy + ypadding +  coords[min_idx].y);
+
+    //x axis notches
     for (g = 0; g < sizeof(xnotch); g++) {
         if (xnotch[g].label != "[end]") {
             //normal notches without a label
@@ -1019,6 +1044,11 @@ void draw_graph(HDC devc) {
                 MoveToEx(devc, gx + xnotch[g].coord, gy + ypadding + coords[min_idx].y, NULL);
                 LineTo(devc, gx + xnotch[g].coord, gy + ypadding + coords[min_idx].y + 10);
                 TextOut(devc, gx - 20 + xnotch[g].coord, gy + ypadding + coords[min_idx].y + 20, xnotch[g].label.c_str(), xnotch[g].label.size());
+                SelectObject(devc, axes_dots);
+                MoveToEx(devc, gx + xnotch[g].coord, gy + ypadding + coords[min_idx].y, NULL);
+                LineTo(devc, gx + xnotch[g].coord, gy - coords[max_idx].y - ypadding);
+                SelectObject(devc, axespen);
+
             }
 
         }
@@ -1026,7 +1056,27 @@ void draw_graph(HDC devc) {
             break;
         }
     }
+    SetBkMode(devc, OPAQUE);
+    SelectObject(devc, hilopen);
 
+    //draw graph lines
+    for (k = 0; k < sizeof(coords); k++) {
+        if (coords[k].label == "[end]") {
+            break;
+        }
+        else {
+            //SetPixelV(devc, gx+coords[k].x, gy+coords[k].y, RGB(0, 0, 0));
+            if (k == 0) {
+                MoveToEx(devc, gx + coords[k].x, gy - coords[k].y, NULL);
+            }
+            else {
+                LineTo(devc, gx + coords[k].x, gy - coords[k].y);
+            }
+
+        }
+    }
+
+    SelectObject(devc, axespen);
     cfocus = -1;
     for (k = 0; k < sizeof(coords); k++) {
         if (coords[k].label == "[end]") {
@@ -1229,6 +1279,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
         SetBkColor(hdc, bkg);
 
         SelectObject(hdc, mainfont);
+        SetTextColor(hdc, top_text);
         //:1
         TextOut(hdc, 220, 17, coinptr, coin_sz);
         //graph:
@@ -1248,6 +1299,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
             }
         }
         
+        price_txt_auto();
         SelectObject(hdc, pricefont);
         //price
         TextOut(hdc, 15, 10, str_price.c_str(), str_price.size());
