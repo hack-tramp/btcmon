@@ -444,8 +444,6 @@ TCHAR szClassName[] = _T("CryptoWindowsApp");
 
 
 
-
-//auto resize y axis text
 void ytxtauto() {
     DeleteObject(yaxisfont);
     int maxl = minpricestr.length();
@@ -461,6 +459,20 @@ void ytxtauto() {
         CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Arial"));
 }
 
+/*
+//auto resize y axis text
+void ytxtauto(string ytxt) {
+    DeleteObject(yaxisfont);
+    int strl = ytxt.length();
+    int fsize = 20;
+    if (strl > 10) {
+        fsize = fsize - (strl/3);
+    }
+
+    yaxisfont = CreateFont(fsize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
+        CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Arial"));
+}
+*/
 
 
 //auto resize price text
@@ -513,9 +525,9 @@ string prettystr(string pstr) {
 
     int length_trigger = 9;
 
-    if (outstr.length() < length_trigger) {
+    if ((int) outstr.length() < length_trigger) {
         string tmpstr = "";
-        for (int c = 0; c < (length_trigger - outstr.length() +3); c++) {
+        for (int c = 0; c < (length_trigger - (int) outstr.length() +3); c++) {
             tmpstr += " ";
         }
         outstr = tmpstr + outstr;
@@ -1473,6 +1485,8 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                     ytxtauto();
                     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE );
                 }
+                //trigger timer to update straight away
+                PostMessage(hwnd, WM_TIMER, 1, 0);
 
             }
 
