@@ -873,28 +873,34 @@ void get_graph(string coin, string currency, string days) {
         tmaxstr = tmaxstr.substr(0, tmaxstr.find("."));
     }
 
-    if (tminstr.length() == tmaxstr.length()) {
-        OutputDebugString("min max len same\n");
-        //no of digits after first
-        int tlen = tminstr.length() - 1;
-        int addno = 1;
-        for (int c = tlen; c-- > 0; ) { // c goes to zero
-            addno = 1;
-            for (int ano = 0; ano < c; ano++) {
-                addno = addno * 10;
-            }
-            sprintf_s(outp, 200, "trying to add: %f\n", (gmin + addno));
+    //if (tminstr.length() == tmaxstr.length()) {
+
+    //no of digits after first
+    int tlen = tminstr.length() - 1;
+    int addno = 1;
+    int ynotch_start = (int)gmin;
+    for (int c = tlen; c-- > 0; ) { // c goes to zero
+        addno = 1;
+        for (int ano = 0; ano < c; ano++) {
+            addno = addno * 10;
+        }
+        ynotch_start = stoi(tminstr.substr(0, tlen + 1 - c)) * addno;
+        sprintf_s(outp, 200, "starting from: %d\n", (ynotch_start));
+        OutputDebugString(outp);
+        sprintf_s(outp, 200, "trying : %f\n", (gmin + addno));
+        OutputDebugString(outp);
+        if ((gmin + addno) < gmax) {
+            sprintf_s(outp, 200, "notch found, addno: %d\n", (addno));
             OutputDebugString(outp);
-            if ((gmin + addno) < gmax) {
-                sprintf_s(outp, 200, "notch found: %f\n", (gmin + addno));
-                OutputDebugString(outp);
-                break;
-            }
+            ynotch_start += addno;
+            sprintf_s(outp, 200, "notch found, start point: %d\n", (ynotch_start));
+            OutputDebugString(outp);
+            break;
         }
     }
-    else {
 
-    }
+
+
 
     //the time and date for each x axis pixel is stored in xmap
     int last_date = 0;
