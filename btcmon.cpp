@@ -839,32 +839,10 @@ void get_graph(string coin, string currency, string days) {
         }
     }
     
-    //the price for each y axis pixel is stored in ymap
-    double tempstep = 0;
-    int nidy = 0;
 
-    for (k = 0; k < gheight; k++) {
-        tempstep = k * gstepy;
-        ymap[k] = prettystr(to_string(gmin + tempstep));
-        //for now just the first and last y pixels have notches
-        if (k == 0) {
-            ynotch[nidy].label = ymap[k];
-            ynotch[nidy].coord = k;
-            nidy++;
-        } 
-        if (k == (gheight - 1)) {
-            ynotch[nidy].label = ymap[k];
-            ynotch[nidy].coord = k;
-            nidy++;
-            ynotch[nidy].label = "[end]";
-        }
-    }
-
-    minpricestr = (coords[min_idx].label.substr(0, coords[min_idx].label.find("@")));
-    maxpricestr = (coords[max_idx].label.substr(0, coords[max_idx].label.find("@")));
-
+    //find regular divisions for y axis notches
     string tminstr = to_string(gmin);
-    if (tminstr.find(".") !=string::npos) {
+    if (tminstr.find(".") != string::npos) {
         tminstr = tminstr.substr(0, tminstr.find("."));
     }
 
@@ -901,6 +879,47 @@ void get_graph(string coin, string currency, string days) {
 
 
 
+    //the price for each y axis pixel is stored in ymap
+    double tempstep = 0;
+    
+
+    for (k = 0; k < gheight; k++) {
+        tempstep = k * gstepy;
+        ymap[k] = prettystr(to_string(gmin + tempstep));
+        //for now just the first and last y pixels have notches
+        /*
+        if (k == 0) {
+            ynotch[nidy].label = ymap[k];
+            ynotch[nidy].coord = k;
+            nidy++;
+        } 
+        if (k == (gheight - 1)) {
+            ynotch[nidy].label = ymap[k];
+            ynotch[nidy].coord = k;
+            nidy++;
+            ynotch[nidy].label = "[end]";
+        }*/
+    }
+
+    //clean ynotch array - otherwise it will mess up if its not the first use
+    for (k = 0; k < 1300; k++) {
+        ynotch[k].coord = 0;
+        ynotch[k].label = "";
+    }
+
+    int nidy = 0;
+    while ((int) ((int) ynotch_start ) < (int) gmax) {
+        
+        ynotch[nidy].coord = (int)((ynotch_start - gmin) / gstepy);
+        ynotch[nidy].label = prettystr(to_string(ynotch_start));ynotch_start += addno;
+        nidy++;
+        
+    }
+    ynotch[nidy].label = "[end]";
+
+
+    minpricestr = (coords[min_idx].label.substr(0, coords[min_idx].label.find("@")));
+    maxpricestr = (coords[max_idx].label.substr(0, coords[max_idx].label.find("@")));
 
     //the time and date for each x axis pixel is stored in xmap
     int last_date = 0;
@@ -1021,7 +1040,7 @@ void draw_graph(HDC devc) {
     SelectObject(devc, yaxisfont);
     int k = 0;
     int px = 0;
-    
+    char outp[200];
 
     //draw graph fading background color
     int x_init = gx;
@@ -1065,19 +1084,37 @@ void draw_graph(HDC devc) {
     LineTo(devc, gx , gy  - coords[max_idx].y - ypadding);
 
     //min and max y notches
-    MoveToEx(devc, gx - 20, gy - coords[min_idx].y, NULL);
-    LineTo(devc, gx , gy - coords[min_idx].y);
-    TextOut(devc, gx - notch_xpad, gy - coords[min_idx].y - 10, minpricestr.c_str(), minpricestr.size());
+    //MoveToEx(devc, gx - 20, gy - coords[min_idx].y, NULL);
+    //LineTo(devc, gx , gy - coords[min_idx].y);
+    //TextOut(devc, gx - notch_xpad, gy - coords[min_idx].y - 10, minpricestr.c_str(), minpricestr.size());
 
 
-    MoveToEx(devc, gx - 20, gy - coords[max_idx].y, NULL);
-    LineTo(devc, gx, gy - coords[max_idx].y);
-    TextOut(devc, gx - notch_xpad, gy - coords[max_idx].y - 10 , maxpricestr.c_str(), maxpricestr.size());
+    //MoveToEx(devc, gx - 20, gy - coords[max_idx].y, NULL);
+    //LineTo(devc, gx, gy - coords[max_idx].y);
+    //TextOut(devc, gx - notch_xpad, gy - coords[max_idx].y - 10 , maxpricestr.c_str(), maxpricestr.size());
 
 
+
+    
+    int g = 0;
+    //y axis notches
+    for (g = 0; g < sizeof(ynotch); g++) {
+        if (ynotch[g].label != "[end]") {
+            MoveToEx(devc, gx - 20, gy - ynotch[g].coord, NULL);
+            LineTo(devc, gx, gy - ynotch[g].coord);
+            TextOut(devc, gx - notch_xpad, gy - ynotch[g].coord - 10, ynotch[g].label.c_str(), ynotch[g].label.size());
+            //sprintf_s(outp, 200, "notch found, start point: %d\n", (ynotch_start));
+            //OutputDebugString(ynotch[g].label.c_str());
+            //OutputDebugString("\n");
+            sprintf_s(outp, 200, "g: %d\n", g);
+            OutputDebugString(outp);
+        }
+        else {
+            break;
+        }
+    }
 
     SelectObject(devc, axisfont);
-    int g = 0;
     //x axis
     MoveToEx(devc, gx , gy + ypadding + coords[min_idx].y, NULL);
     LineTo(devc, gx  + gwidth + xpadding, gy + ypadding +  coords[min_idx].y);
