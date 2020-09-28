@@ -860,6 +860,42 @@ void get_graph(string coin, string currency, string days) {
         }
     }
 
+    minpricestr = (coords[min_idx].label.substr(0, coords[min_idx].label.find("@")));
+    maxpricestr = (coords[max_idx].label.substr(0, coords[max_idx].label.find("@")));
+
+    string tminstr = to_string(gmin);
+    if (tminstr.find(".") !=string::npos) {
+        tminstr = tminstr.substr(0, tminstr.find("."));
+    }
+
+    string tmaxstr = to_string(gmax);
+    if (tmaxstr.find(".") != string::npos) {
+        tmaxstr = tmaxstr.substr(0, tmaxstr.find("."));
+    }
+
+    if (tminstr.length() == tmaxstr.length()) {
+        OutputDebugString("min max len same\n");
+        //no of digits after first
+        int tlen = tminstr.length() - 1;
+        int addno = 1;
+        for (int c = tlen; c-- > 0; ) { // c goes to zero
+            addno = 1;
+            for (int ano = 0; ano < c; ano++) {
+                addno = addno * 10;
+            }
+            sprintf_s(outp, 200, "trying to add: %f\n", (gmin + addno));
+            OutputDebugString(outp);
+            if ((gmin + addno) < gmax) {
+                sprintf_s(outp, 200, "notch found: %f\n", (gmin + addno));
+                OutputDebugString(outp);
+                break;
+            }
+        }
+    }
+    else {
+
+    }
+
     //the time and date for each x axis pixel is stored in xmap
     int last_date = 0;
     int current_date = 0;
@@ -970,8 +1006,7 @@ void get_graph(string coin, string currency, string days) {
             //OutputDebugString("finished xmap and xnotch\n");
         }
     }
-    minpricestr = (coords[min_idx].label.substr(0, coords[min_idx].label.find("@")));
-    maxpricestr = (coords[max_idx].label.substr(0, coords[max_idx].label.find("@")));
+
 }
 
 void draw_graph(HDC devc) {
