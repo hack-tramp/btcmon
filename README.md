@@ -1,5 +1,5 @@
 # btcmon - super small cryptocurrency monitor
-![alt text](https://github.com/hack-tramp/btcmon/blob/master/screen4.jpg)
+![alt text](https://github.com/hack-tramp/btcmon/blob/master/btcmon_wf0xHMdDnh.png)
 super small (<600KB on disk, 2.5MB in RAM) windows app <br><br>
 - supports 50+ currencies and 200+ crypto coins<br>
 - graph for last 24 hours, week, month or year<br>
