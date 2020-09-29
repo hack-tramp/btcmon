@@ -10,7 +10,7 @@
 using namespace std;
 
 HPEN axespen = CreatePen(PS_SOLID, 2, RGB(200, 200, 200));
-HPEN axes_dots = CreatePen(PS_DASHDOTDOT, 1, RGB(200, 200, 200));
+HPEN axes_dots = CreatePen(PS_DASHDOTDOT, 1, RGB(120, 120, 120));
 HPEN hilopen = CreatePen(PS_SOLID, 3, RGB(255, 204, 255));
 
 COLORREF bkg = RGB(100, 100, 100);
@@ -851,10 +851,8 @@ void get_graph(string coin, string currency, string days) {
         tmaxstr = tmaxstr.substr(0, tmaxstr.find("."));
     }
 
-    //if (tminstr.length() == tmaxstr.length()) {
-
     //no of digits after first
-    int tlen = tminstr.length() - 1;
+    int tlen = tmaxstr.length() -1 ;
     int addno = 1;
     int ynotch_start = (int)gmin;
     for (int c = tlen; c-- > 0; ) { // c goes to zero
@@ -862,56 +860,51 @@ void get_graph(string coin, string currency, string days) {
         for (int ano = 0; ano < c; ano++) {
             addno = addno * 10;
         }
-        ynotch_start = stoi(tminstr.substr(0, tlen + 1 - c)) * addno;
-        sprintf_s(outp, 200, "starting from: %d\n", (ynotch_start));
-        OutputDebugString(outp);
-        sprintf_s(outp, 200, "trying : %f\n", (gmin + addno));
-        OutputDebugString(outp);
+        ynotch_start = stoi(tminstr.substr(0, tminstr.length() - c)) * addno;
         if ((gmin + addno) < gmax) {
-            sprintf_s(outp, 200, "notch found, addno: %d\n", (addno));
-            OutputDebugString(outp);
             ynotch_start += addno;
-            sprintf_s(outp, 200, "notch found, start point: %d\n", (ynotch_start));
-            OutputDebugString(outp);
             break;
         }
     }
+    sprintf_s(outp, 200, "addno: %d\n", addno);
+    OutputDebugString(outp);
+    //dont overcrowd y axis with too many notches -adjust addno accordingly
+    //reuse tlen to store the initial addno
+    tlen = addno;
+    while ((int)((gmax-gmin)/addno)>5) {
+        addno += tlen;
+    }
+    sprintf_s(outp, 200, "addno revised: %d\n", addno);
+    OutputDebugString(outp);
 
-
+    //clean ynotch and ymap array - otherwise it will mess up if its not the first use
+    for (k = 0; k < 1300; k++) {
+        ynotch[k].coord = 0;
+        ynotch[k].label = "";
+        if (k < 1200) {
+            ymap[k] = "";
+        }
+    }
 
     //the price for each y axis pixel is stored in ymap
-    double tempstep = 0;
-    
+    double tempstep = 0; 
 
     for (k = 0; k < gheight; k++) {
         tempstep = k * gstepy;
         ymap[k] = prettystr(to_string(gmin + tempstep));
-        //for now just the first and last y pixels have notches
-        /*
-        if (k == 0) {
-            ynotch[nidy].label = ymap[k];
-            ynotch[nidy].coord = k;
-            nidy++;
-        } 
-        if (k == (gheight - 1)) {
-            ynotch[nidy].label = ymap[k];
-            ynotch[nidy].coord = k;
-            nidy++;
-            ynotch[nidy].label = "[end]";
-        }*/
     }
 
-    //clean ynotch array - otherwise it will mess up if its not the first use
-    for (k = 0; k < 1300; k++) {
-        ynotch[k].coord = 0;
-        ynotch[k].label = "";
-    }
-
+    //add y axis notches to array
+    sprintf_s(outp, 200, "ynotch_start : %d\n", ynotch_start);
+    OutputDebugString(outp);
     int nidy = 0;
     while ((int) ((int) ynotch_start ) < (int) gmax) {
-        
+        //if not too close to another notch, add min and max notches
+        //if (nidy==0)
+        //-currently on hold
         ynotch[nidy].coord = (int)((ynotch_start - gmin) / gstepy);
-        ynotch[nidy].label = prettystr(to_string(ynotch_start));ynotch_start += addno;
+        ynotch[nidy].label = prettystr(to_string(ynotch_start));
+        ynotch_start += addno;
         nidy++;
         
     }
@@ -938,10 +931,13 @@ void get_graph(string coin, string currency, string days) {
         xdstep = (int)(24 / xdivs);
     }
 
-    //clean xnotch array - otherwise it will mess up if its not the first use
+    //clean xnotch and xmap array - otherwise it will mess up if its not the first use
     for (k = 0; k < 1300; k++) {
         xnotch[k].coord = 0;
         xnotch[k].label = "";
+        if (k < 1200) {
+            xmap[k] = "";
+        }
     }
 
     for (k = 0; k < gwidth; k++) {
@@ -1040,7 +1036,7 @@ void draw_graph(HDC devc) {
     SelectObject(devc, yaxisfont);
     int k = 0;
     int px = 0;
-    char outp[200];
+    //char outp[200] = "";
 
     //draw graph fading background color
     int x_init = gx;
@@ -1057,7 +1053,7 @@ void draw_graph(HDC devc) {
     for (k = y_init; k <= y_end; k++) {
         color_count++;
         if (color_count > 3) {
-            if (col < 150) {
+            if (col < 160) {
                 col+=1;
                 SetDCPenColor(devc, RGB(col, col, col));
             }
@@ -1071,6 +1067,7 @@ void draw_graph(HDC devc) {
     SetBkMode(devc, TRANSPARENT);
     //draw axes
 
+    /*
     //y axis dotted lines
     SelectObject(devc, axes_dots);
     MoveToEx(devc, gx , gy - coords[max_idx].y, NULL);
@@ -1084,30 +1081,29 @@ void draw_graph(HDC devc) {
     LineTo(devc, gx , gy  - coords[max_idx].y - ypadding);
 
     //min and max y notches
-    //MoveToEx(devc, gx - 20, gy - coords[min_idx].y, NULL);
-    //LineTo(devc, gx , gy - coords[min_idx].y);
-    //TextOut(devc, gx - notch_xpad, gy - coords[min_idx].y - 10, minpricestr.c_str(), minpricestr.size());
+    MoveToEx(devc, gx - 20, gy - coords[min_idx].y, NULL);
+    LineTo(devc, gx , gy - coords[min_idx].y);
+    TextOut(devc, gx - notch_xpad, gy - coords[min_idx].y - 10, minpricestr.c_str(), minpricestr.size());
 
 
-    //MoveToEx(devc, gx - 20, gy - coords[max_idx].y, NULL);
-    //LineTo(devc, gx, gy - coords[max_idx].y);
-    //TextOut(devc, gx - notch_xpad, gy - coords[max_idx].y - 10 , maxpricestr.c_str(), maxpricestr.size());
+    MoveToEx(devc, gx - 20, gy - coords[max_idx].y, NULL);
+    LineTo(devc, gx, gy - coords[max_idx].y);
+    TextOut(devc, gx - notch_xpad, gy - coords[max_idx].y - 10 , maxpricestr.c_str(), maxpricestr.size());
+    */
 
-
-
-    
     int g = 0;
     //y axis notches
     for (g = 0; g < sizeof(ynotch); g++) {
         if (ynotch[g].label != "[end]") {
+            
+            SelectObject(devc, axes_dots);
+            MoveToEx(devc, gx, gy - ynotch[g].coord, NULL);
+            LineTo(devc, gx + gwidth + xpadding, gy - ynotch[g].coord);
+            SelectObject(devc, axespen);
             MoveToEx(devc, gx - 20, gy - ynotch[g].coord, NULL);
             LineTo(devc, gx, gy - ynotch[g].coord);
             TextOut(devc, gx - notch_xpad, gy - ynotch[g].coord - 10, ynotch[g].label.c_str(), ynotch[g].label.size());
-            //sprintf_s(outp, 200, "notch found, start point: %d\n", (ynotch_start));
-            //OutputDebugString(ynotch[g].label.c_str());
-            //OutputDebugString("\n");
-            sprintf_s(outp, 200, "g: %d\n", g);
-            OutputDebugString(outp);
+
         }
         else {
             break;
@@ -1206,7 +1202,9 @@ void draw_graph(HDC devc) {
             MoveToEx(devc, mouse_x, gy + ypadding, NULL);
             LineTo(devc, mouse_x, mouse_y);
             //y axis label
-            TextOut(devc, gx - notch_xpad, mouse_y, ymap[gy - mouse_y].c_str(), ymap[gy - mouse_y].size());
+            if ((gy - mouse_y) >= 0) { //if you go very low it goes below 0
+                TextOut(devc, gx - notch_xpad, mouse_y, ymap[gy - mouse_y].c_str(), ymap[gy - mouse_y].size());
+            }
             //x axis label
             TextOut(devc, mouse_x - xpadding - xpadding - xpadding, gy + ypadding + coords[min_idx].y + 20, xmap[mouse_x - gx].c_str(), xmap[mouse_x - gx].size());
 
