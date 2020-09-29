@@ -409,6 +409,7 @@ int min_idx = 0;
 int max_idx = 0;
 string minpricestr;
 string maxpricestr;
+string toptext;
 
 string str_price = "loading.";
 double cur_price = 0;
@@ -1012,6 +1013,7 @@ void get_graph(string coin, string currency, string days) {
         strftime(outp, sizeof(outp), "%H:%M %d %b", &timeinfo);
         xmap[k] = outp;
         if (k == (gwidth - 1)) {
+            toptext = xmap[0] + " - " + xmap[k] + "              / / / /              High: " + maxpricestr + " Low: " + minpricestr;
             xmap[k + 1] = "[end]";
             if ((days == "7") || (days == "30")) {
                 strftime(outp, sizeof(outp), "%d %b", &timeinfo);
@@ -1028,12 +1030,12 @@ void get_graph(string coin, string currency, string days) {
         }
     }
 
+    
 }
 
 void draw_graph(HDC devc) {
 
-    SetTextColor(devc, axis_text);
-    SelectObject(devc, yaxisfont);
+
     int k = 0;
     int px = 0;
     //char outp[200] = "";
@@ -1065,8 +1067,13 @@ void draw_graph(HDC devc) {
 
 
     SetBkMode(devc, TRANSPARENT);
-    //draw axes
 
+    TextOut(devc, gx , gy - gheight - 40, toptext.c_str(), toptext.size());
+
+
+    //draw axes
+    SetTextColor(devc, axis_text);
+    SelectObject(devc, yaxisfont);
     /*
     //y axis dotted lines
     SelectObject(devc, axes_dots);
