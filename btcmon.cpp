@@ -453,7 +453,7 @@ void ytxtauto() {
         maxl = maxpricestr.length();
     }
     if (maxl > 10) {
-        fsize = 20 - (maxl/3);
+        fsize = 25 - (maxl/3);
     }
 
     yaxisfont = CreateFont(fsize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
@@ -492,11 +492,19 @@ void price_txt_auto() {
 
 //math formatting of price string
 
-string prettystr(string pstr) {
+string prettystr(string pstr, int len_trig) {
     string outstr = "";
     bool dec = false;
     if (pstr.find(".") != string::npos) {
-        dec = true;
+        //if theres over 8 numbers left of the point, dont show any decimals at all
+        if (pstr.substr(0, pstr.find(".")).length() > 8) {
+            pstr = pstr.substr(0, pstr.find("."));
+            dec = false;
+        }
+        else {
+            dec = true;
+        }
+        
     }
     else {
         dec = false;
@@ -524,16 +532,17 @@ string prettystr(string pstr) {
         }
     }
 
-    int length_trigger = 9;
-
-    if ((int) outstr.length() < length_trigger) {
-        string tmpstr = "";
-        for (int c = 0; c < (length_trigger - (int) outstr.length() +3); c++) {
-            tmpstr += " ";
+    //if padding mode is on, pad with spaces if price is less than length_trigger   
+    if (len_trig!=0) {
+        if ((int) outstr.length() < len_trig) {
+            string tmpstr = "";
+            for (int c = 0; c < (len_trig - (int) outstr.length() +  3); c++) {
+                tmpstr += " ";
+            }
+            outstr = tmpstr + outstr;
         }
-        outstr = tmpstr + outstr;
-
     }
+
     return outstr;
 }
 
@@ -639,143 +648,25 @@ void get_graph(string coin, string currency, string days) {
         rawtime = (const time_t)tst;
         localtime_s(&timeinfo,&rawtime);
 
-        //high-low mode is 0 or anything below
-        if (mode < 1) {
-            //see if this is the highest or lowest price for this day - only then will it be used for the graph
-            if ((cdate.tm_year == timeinfo.tm_year) & (cdate.tm_mon == timeinfo.tm_mon) & (cdate.tm_mday == timeinfo.tm_mday)) {
-                if (temppr > hi) {
-                    hi = temppr;
-                    hitst = tst;
-                    strftime(outp, sizeof(outp), " @ %H:%M %d %b", &timeinfo);
-                    hilbl = elmnt.substr(elmnt.find(",") + 1);
-                    hilbl = prettystr(hilbl);
-                    hilbl = hilbl + outp;
-
-                }
-                if (temppr < lo) {
-                    lo = temppr;
-                    lotst = tst;
-                    strftime(outp, sizeof(outp), " @ %H:%M %d %b", &timeinfo);
-                    lolbl = elmnt.substr(elmnt.find(",") + 1);
-                    lolbl = prettystr(lolbl);
-                    lolbl = lolbl + outp;
-                }
-            }
-            //if we've changed date then update the current date
-            //and set this first price val as both highest and lowest for this day
-            //but first store the highest and lowest etc for the previous day
-            //unless we're on the first loop iteration in which case we update first and store after
-            else {
-
-                if (ct != 1) {
-                    //store in chronological order
-                    if (lotst < hitst) {
-                        json_dump[idx].price = lo;
-                        json_dump[idx].tst = lotst;
-                        json_dump[idx].label = lolbl;
-
-                        idx++;
-
-                        json_dump[idx].price = hi;
-                        json_dump[idx].tst = hitst;
-                        json_dump[idx].label = hilbl;
-
-                        idx++;
-                    }
-                    else {
-                        json_dump[idx].price = hi;
-                        json_dump[idx].tst = hitst;
-                        json_dump[idx].label = hilbl;
-
-                        idx++;
-
-                        json_dump[idx].price = lo;
-                        json_dump[idx].tst = lotst;
-                        json_dump[idx].label = lolbl;
-
-                        idx++;
-                    }
-                }
 
 
-                /*
-                if ((ct > 650) || (ct < 11)) {
-                    if (cdate.tm_year != 0) {
-                        strftime(outp, sizeof(outp), "hi - lo results for date: %H:%M:%S %d %m %y\n", &cdate);
-                        OutputDebugString(outp);
-                    }
-                    sprintf_s(outp, 200, "hi: %.12f\n", hi);
-                    OutputDebugString(outp);
-                    sprintf_s(outp, 200, "lo: %.12f\n", lo);
-                    OutputDebugString(outp);
-                }*/
+        //if we reached the number of hours in mode, dump json
+        if (ct > mode) {
 
-                cdate = timeinfo;
-                hi = temppr;
-                hitst = tst;
-                lo = temppr;
-                lotst = tst;
-                strftime(outp, sizeof(outp), " @ %H:%M %d %b", &timeinfo);
-                lolbl = elmnt.substr(elmnt.find(",") + 1);
-                lolbl = prettystr(lolbl);
-                lolbl = lolbl + outp;
-                hilbl = lolbl;
+            strftime(outp, sizeof(outp), " @ %H:%M %d %b", &timeinfo);
 
+            json_dump[idx].price = temppr;
+            json_dump[idx].tst = tst;
+            json_dump[idx].label = prettystr(to_string(temppr), 0) + outp;
 
-
-            }
-        } //end of mode 0 or -ve (hi-lo)
-        else {
-
-        //hourly interval mode
-
-            //if we reached the number of hours in mode, dump json
-            if (ct > mode) {
-
-                strftime(outp, sizeof(outp), " @ %H:%M %d %b", &timeinfo);
-
-                json_dump[idx].price = temppr;
-                json_dump[idx].tst = tst;
-                json_dump[idx].label = prettystr(to_string(temppr)) + outp; 
-
-                idx++;
-                ct = 0;
-            }
+            idx++;
+            ct = 0;
         }
+        
 
     }/*end of while loop*/
 
-    //if we're high-low mode
-    if (mode < 1) {
-        //this is done because at the end of the while loop no change of date is detected
-        //so we need to store high and low info in chronological order
-        if (lotst < hitst) {
-            json_dump[idx].price = lo;
-            json_dump[idx].tst = lotst;
-            json_dump[idx].label = lolbl;
 
-            idx++;
-
-            json_dump[idx].price = hi;
-            json_dump[idx].tst = hitst;
-            json_dump[idx].label = hilbl;
-
-            idx++;
-        }
-        else {
-            json_dump[idx].price = hi;
-            json_dump[idx].tst = hitst;
-            json_dump[idx].label = hilbl;
-
-            idx++;
-
-            json_dump[idx].price = lo;
-            json_dump[idx].tst = lotst;
-            json_dump[idx].label = lolbl;
-
-            idx++;
-        }
-    }
 
     int k = 0;
     gmin = json_dump[k].price;
@@ -892,7 +783,7 @@ void get_graph(string coin, string currency, string days) {
 
     for (k = 0; k < gheight; k++) {
         tempstep = k * gstepy;
-        ymap[k] = prettystr(to_string(gmin + tempstep));
+        ymap[k] = prettystr(to_string(gmin + tempstep), 10);
     }
 
     //add y axis notches to array
@@ -904,7 +795,7 @@ void get_graph(string coin, string currency, string days) {
         //if (nidy==0)
         //-currently on hold
         ynotch[nidy].coord = (int)((ynotch_start - gmin) / gstepy);
-        ynotch[nidy].label = prettystr(to_string(ynotch_start));
+        ynotch[nidy].label = prettystr(to_string(ynotch_start), 9);
         ynotch_start += addno;
         nidy++;
         
@@ -1009,8 +900,13 @@ void get_graph(string coin, string currency, string days) {
                 }
             }
         }
-
-        strftime(outp, sizeof(outp), "%H:%M %d %b", &timeinfo);
+        if (days == "365") {
+            strftime(outp, sizeof(outp), "%d %b '%y", &timeinfo);
+        }
+        else {
+            strftime(outp, sizeof(outp), "%H:%M %d %b", &timeinfo);
+        }
+        
         xmap[k] = outp;
         if (k == (gwidth - 1)) {
             toptext = xmap[0] + " - " + xmap[k] + "              / / / /              High: " + maxpricestr + " Low: " + minpricestr;
@@ -1067,7 +963,7 @@ void draw_graph(HDC devc) {
 
 
     SetBkMode(devc, TRANSPARENT);
-
+    //top text
     TextOut(devc, gx , gy - gheight - 40, toptext.c_str(), toptext.size());
 
 
@@ -1629,7 +1525,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
             str_price = str_price.substr(pstart, str_price.find('}')-pstart);
             old_price = cur_price;
             cur_price = stod(str_price);
-            str_price = prettystr(str_price);
+            str_price = prettystr(str_price, 9);
             SetWindowText(hwnd, str_price.c_str());
             RedrawWindow(hwnd, &price_update, NULL, RDW_INVALIDATE );
 
