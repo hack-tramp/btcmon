@@ -12,6 +12,8 @@ using namespace std;
 HPEN axespen = CreatePen(PS_SOLID, 2, RGB(200, 200, 200));
 HPEN axes_dots = CreatePen(PS_DASHDOTDOT, 1, RGB(120, 120, 120));
 HPEN hilopen = CreatePen(PS_SOLID, 3, RGB(255, 204, 255));
+HPEN btnred = CreatePen(PS_SOLID, 2, RGB(255, 185, 185));
+HPEN btngreen = CreatePen(PS_SOLID, 2, RGB(185, 255, 185));
 
 COLORREF bkg = RGB(100, 100, 100);
 COLORREF axis_text = RGB(160, 160, 160);
@@ -360,6 +362,17 @@ struct notch {
     string label = "";
 };
 
+struct btn {
+    int left = 0;
+    int top = 0;
+    int right = 0;
+    int bottom = 0;
+    int width = 0;
+    int height = 0;
+    string label = "";
+};
+
+
 grawdata json_dump[800];
 gdata coords[300];
 //x axis map (not the graph line)
@@ -370,9 +383,13 @@ string ymap[1200];
 //notches
 notch xnotch[1300];
 notch ynotch[1300];
+//buttons
+btn buttons[4];
 
-int gx = 110;
+int buttons_top = 50;
+int buttons_left = 600;
 //gx,gy is the lower left corner
+int gx = 110;
 int gy = 500;
 int ypadding = 10;
 int xpadding = 10;
@@ -443,7 +460,36 @@ LRESULT CALLBACK WindowProcedure(HWND, UINT, WPARAM, LPARAM);
 /*  Make the class name into a global variable  */
 TCHAR szClassName[] = _T("CryptoWindowsApp");
 
+//initialise graph buttons, with their base coords
+void buttons_init(int top, int left, int bwidth, int bheight, int spacing) {
 
+    buttons_left = left;
+    buttons_top = top;
+
+    buttons[0].left = left;
+    buttons[0].top = top;
+    buttons[0].right = left + bwidth;
+    buttons[0].bottom = top + bheight;
+    buttons[0].label = "24H";
+
+    buttons[1].left = buttons[0].right + spacing;
+    buttons[1].top = top;
+    buttons[1].right = buttons[1].left + bwidth;
+    buttons[1].bottom = top + bheight;
+    buttons[1].label = "7D";
+
+    buttons[2].left = buttons[1].right + spacing;
+    buttons[2].top = top;
+    buttons[2].right = buttons[2].left + bwidth;
+    buttons[2].bottom = top + bheight;
+    buttons[2].label = "30D";
+
+    buttons[3].left = buttons[2].right + spacing;
+    buttons[3].top = top;
+    buttons[3].right = buttons[3].left + bwidth;
+    buttons[3].bottom = top + bheight;
+    buttons[3].label = "1Y";
+}
 
 void ytxtauto() {
     DeleteObject(yaxisfont);
@@ -929,6 +975,16 @@ void get_graph(string coin, string currency, string days) {
     
 }
 
+void draw_buttons(HDC devc, int width, int height) {
+    
+    SelectObject(devc, btngreen);
+    SelectObject(devc, bgr);
+    SetBkMode(devc, TRANSPARENT);
+    for (int b = 0; b < 4; b++) {
+        RoundRect(devc, buttons[b].left, buttons[b].top, buttons[b].right, buttons[b].bottom, width, height);
+    }
+}
+
 void draw_graph(HDC devc) {
 
 
@@ -1123,6 +1179,7 @@ int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstanc
 {
 
     start_curl(str_price,final_url);
+    buttons_init(20,490,120,60,10);
 
     HWND hwnd;               /* This is the handle for our window */
     MSG messages;            /* Here messages to the application are saved */
@@ -1278,6 +1335,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
 
         if (gstatus != 0) {
             draw_graph(hdc);
+            draw_buttons(hdc, 20, 20);
         }
 
         SetTextColor(hdc, price_text_netural);
