@@ -16,6 +16,7 @@ HPEN btnred = CreatePen(PS_SOLID, 2, RGB(255, 185, 185));
 HPEN btngreen = CreatePen(PS_SOLID, 2, RGB(185, 255, 185));
 
 COLORREF bkg = RGB(100, 100, 100);
+COLORREF btngreenon = RGB(85, 155, 85);
 COLORREF axis_text = RGB(160, 160, 160);
 COLORREF coord_text = RGB(0, 0, 0);
 COLORREF top_text = RGB(200, 200, 200);
@@ -24,6 +25,7 @@ COLORREF price_text_up = RGB(0, 200, 0);
 COLORREF price_text_down = RGB(200, 0, 0);
 
 HBRUSH bgr = CreateSolidBrush(bkg);
+HBRUSH btngreenhover = CreateSolidBrush(btngreenon);
 
 HCURSOR cross = LoadCursor(NULL, IDC_CROSS);
 HCURSOR arrow = LoadCursor(NULL, IDC_ARROW);
@@ -370,6 +372,9 @@ struct btn {
     int width = 0;
     int height = 0;
     string label = "";
+    string change = "";
+    string hilo = "";
+    bool hover = false;
 };
 
 
@@ -836,7 +841,7 @@ void get_graph(string coin, string currency, string days) {
     sprintf_s(outp, 200, "ynotch_start : %d\n", ynotch_start);
     OutputDebugString(outp);
     int nidy = 0;
-    while ((int) ((int) ynotch_start ) < (int) gmax) {
+    while ((int) ((int) ynotch_start ) < ((int) gmax+1)) {
         //if not too close to another notch, add min and max notches
         //if (nidy==0)
         //-currently on hold
@@ -976,12 +981,23 @@ void get_graph(string coin, string currency, string days) {
 }
 
 void draw_buttons(HDC devc, int width, int height) {
-    
-    SelectObject(devc, btngreen);
-    SelectObject(devc, bgr);
+
     SetBkMode(devc, TRANSPARENT);
     for (int b = 0; b < 4; b++) {
+        if (buttons[b].hover) {
+            //pen
+            SelectObject(devc, btngreen);
+            //brush
+            SelectObject(devc, btngreenhover);
+        }
+        else {
+            //pen
+            SelectObject(devc, btngreen);
+            //brush
+            SelectObject(devc, bgr);
+        }
         RoundRect(devc, buttons[b].left, buttons[b].top, buttons[b].right, buttons[b].bottom, width, height);
+        TextOut(devc, ((buttons[b].right + buttons[b].left)/2)-15, ((buttons[b].bottom + buttons[b].top) / 2)-10, buttons[b].label.c_str(), buttons[b].label.size());
     }
 }
 
@@ -996,9 +1012,9 @@ void draw_graph(HDC devc) {
     int x_init = gx;
     int x_end = gx + gwidth + xpadding;
     //top
-    int y_init = gy - coords[max_idx].y - ypadding;
+    int y_init = gy - gheight - ypadding;
     //bottom
-    int y_end = gy + coords[min_idx].y + ypadding;
+    int y_end = gy  + ypadding;
     int col = 100;
     int color_count = 0;
     SelectObject(devc, GetStockObject(DC_PEN));
@@ -1035,9 +1051,7 @@ void draw_graph(HDC devc) {
     LineTo(devc, gx + gwidth + xpadding, gy - coords[min_idx].y);
     SelectObject(devc, axespen);
     
-    //y axis
-    MoveToEx(devc, gx , gy + coords[min_idx].y + ypadding, NULL);
-    LineTo(devc, gx , gy  - coords[max_idx].y - ypadding);
+
 
     //min and max y notches
     MoveToEx(devc, gx - 20, gy - coords[min_idx].y, NULL);
@@ -1050,6 +1064,10 @@ void draw_graph(HDC devc) {
     TextOut(devc, gx - notch_xpad, gy - coords[max_idx].y - 10 , maxpricestr.c_str(), maxpricestr.size());
     */
 
+    //y axis
+    SelectObject(devc, axespen);
+    MoveToEx(devc, gx , gy + coords[min_idx].y + ypadding, NULL);
+    LineTo(devc, gx , gy  - coords[max_idx].y - ypadding);
     int g = 0;
     //y axis notches
     for (g = 0; g < sizeof(ynotch); g++) {
@@ -1059,7 +1077,7 @@ void draw_graph(HDC devc) {
             MoveToEx(devc, gx, gy - ynotch[g].coord, NULL);
             LineTo(devc, gx + gwidth + xpadding, gy - ynotch[g].coord);
             SelectObject(devc, axespen);
-            MoveToEx(devc, gx - 20, gy - ynotch[g].coord, NULL);
+            MoveToEx(devc, gx - 10, gy - ynotch[g].coord, NULL);
             LineTo(devc, gx, gy - ynotch[g].coord);
             TextOut(devc, gx - notch_xpad, gy - ynotch[g].coord - 10, ynotch[g].label.c_str(), ynotch[g].label.size());
 
@@ -1296,11 +1314,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
     HBITMAP     hbmMem;
     HANDLE      hOld;
     RECT clientRect;
-    RECT price_update;
-    price_update.left = 15;
-    price_update.top = 0;
-    price_update.right = 155;
-    price_update.bottom = 90;
+    RECT rect_update;
     HRGN bgRgn;
     HDC hdcStatic;
     HBRUSH hbrBkgnd = NULL;
@@ -1368,6 +1382,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
 
     case WM_MOUSEMOVE:
         //LOWORD is x coord, HIWORD y
+
         //if the graph is on, detect when mouse is in graph area
         if (gstatus != 0) {
 
@@ -1378,6 +1393,31 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
             mouse_dx = mouse_x - old_mouse_x;
             mouse_dy = mouse_y - old_mouse_y;
 
+            //check if mouse is over any of the buttons
+            for (int b = 0; b < 4; b++) {
+                if ( (mouse_x > buttons[b].left) & (mouse_x < buttons[b].right) & (mouse_y > buttons[b].top) & (mouse_y < buttons[b].bottom) ) {
+                    if (buttons[b].hover == false) {
+                        buttons[b].hover = true;
+                        rect_update.left = buttons[b].left - 1;
+                        rect_update.top = buttons[b].top - 1;
+                        rect_update.right = buttons[b].right + 1;
+                        rect_update.bottom = buttons[b].bottom + 1;
+                        RedrawWindow(hwnd, &rect_update, NULL, RDW_INVALIDATE);
+                    }
+                }
+                else {
+                    if (buttons[b].hover) {
+                        buttons[b].hover = false;
+                        rect_update.left = buttons[b].left - 1;
+                        rect_update.top = buttons[b].top - 1;
+                        rect_update.right = buttons[b].right + 1;
+                        rect_update.bottom = buttons[b].bottom + 1;
+                        RedrawWindow(hwnd, &rect_update, NULL, RDW_INVALIDATE);
+                    }
+                }
+            }
+
+            //if mouse is in the graph area
             if ((mouse_x > gx) & (mouse_x < (gx + gwidth )) & (mouse_y > (gy - gheight - ypadding)) & (mouse_y< (gy + ypadding) )) {
                 if (!mouse_over_graph) {
                     mouse_over_graph = true;
@@ -1491,6 +1531,35 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
             SetCursor(arrow);
         }
         break;
+
+    //left mouse click
+    case WM_LBUTTONUP:
+        //check if mouse is over any of the buttons
+        for (int b = 0; b < 4; b++) {
+            if (buttons[b].hover) {
+                gstatus = b+1;
+                if (gstatus != 0) {
+                    get_graph(ids, vcs, api_days[(gstatus - 1)]);
+                    ytxtauto();
+                }
+                RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE);
+                if (buttons[b].label == "24H") {
+
+                }
+                if (buttons[b].label == "7D") {
+
+                }
+                if (buttons[b].label == "30D") {
+
+                }
+                if (buttons[b].label == "1Y") {
+
+                }
+                break;
+            }
+        }
+
+        break;
     case WM_COMMAND:
         if (HIWORD(wParam) == CBN_SELCHANGE)
             // If the user makes a selection from the list:
@@ -1585,7 +1654,11 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
             cur_price = stod(str_price);
             str_price = prettystr(str_price, 9);
             SetWindowText(hwnd, str_price.c_str());
-            RedrawWindow(hwnd, &price_update, NULL, RDW_INVALIDATE );
+            rect_update.left = 15;
+            rect_update.top = 0;
+            rect_update.right = 155;
+            rect_update.bottom = 90;
+            RedrawWindow(hwnd, &rect_update, NULL, RDW_INVALIDATE );
 
             return 0;
         }
