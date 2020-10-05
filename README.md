@@ -1,5 +1,5 @@
 # btcmon - super small cryptocurrency monitor
-![alt text](https://github.com/hack-tramp/btcmon/blob/master/btcmon_wf0xHMdDnh.png)
+![alt text](https://github.com/hack-tramp/btcmon/blob/master/screen4.jpg)
 <br>
 tested on windows 7/8/10     ~ 600KB on disk, ~ 2.5MB in RAM<br>
 - supports 50+ currencies and 200+ crypto coins<br>
