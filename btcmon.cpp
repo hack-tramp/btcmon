@@ -11,29 +11,42 @@ using namespace std;
 
 
 COLORREF bkg = RGB(100, 100, 100);
-COLORREF btngreenon = RGB(85, 155, 85);
+
+COLORREF greenon = RGB(51, 153, 102);
+COLORREF greenoff = RGB(179, 255, 179);
+COLORREF redon = RGB(174, 120, 225);
+COLORREF redoff = RGB(255, 204, 255);
+COLORREF redtext = RGB(236, 198, 217);
+COLORREF greentext = RGB(179, 230, 204);
+
+COLORREF gbon = RGB(185, 185, 185);
+COLORREF gboff = RGB(85, 85, 85);
+
 COLORREF axis_text = RGB(160, 160, 160);
 COLORREF coord_text = RGB(0, 0, 0);
 COLORREF top_text = RGB(200, 200, 200);
-COLORREF price_text_netural = RGB(200, 200, 200);
+COLORREF price_text_netural = RGB(220, 220, 220);
 COLORREF price_text_up = RGB(0, 200, 0);
 COLORREF price_text_down = RGB(200, 0, 0);
-COLORREF gbon = RGB(185, 185, 185);
-COLORREF gboff = RGB(85, 85, 85);
 
 HPEN axespen = CreatePen(PS_SOLID, 2, RGB(200, 200, 200));
 HPEN axes_dots = CreatePen(PS_DASHDOTDOT, 1, RGB(120, 120, 120));
 HPEN hilopen = CreatePen(PS_SOLID, 3, RGB(255, 204, 255));
-HPEN btnred = CreatePen(PS_SOLID, 2, RGB(255, 185, 185));
-HPEN btngreen = CreatePen(PS_SOLID, 2, RGB(185, 255, 185));
+HPEN predon = CreatePen(PS_SOLID, 2, redon);
+HPEN predoff = CreatePen(PS_SOLID, 2, redoff);
+HPEN pgreenon = CreatePen(PS_SOLID, 2, greenon);
+HPEN pgreenoff = CreatePen(PS_SOLID, 2, greenoff);
 HPEN gbtnon = CreatePen(PS_SOLID, 2, gbon);
 HPEN gbtnoff = CreatePen(PS_SOLID, 2, gboff);
 
 HBRUSH bgr = CreateSolidBrush(bkg);
-HBRUSH btngreenhover = CreateSolidBrush(btngreenon);
+HBRUSH btngreenhover = CreateSolidBrush(greenon);
 
 HCURSOR cross = LoadCursor(NULL, IDC_CROSS);
 HCURSOR arrow = LoadCursor(NULL, IDC_ARROW);
+
+HFONT btnfont = CreateFont(20, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
+    CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Arial"));
 
 HFONT mainfont = CreateFont(18, 0 , 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
     CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Arial"));
@@ -378,7 +391,7 @@ struct btn {
     int height = 0;
     string label = "";
     string change = "";
-    string hilo = "";
+    string oldprice = "";
     bool hover = false;
     bool on = false;
 };
@@ -407,6 +420,9 @@ int notch_ypad = 100;
 int gheight = 400;
 int gwidth = 800;
 int gstatus = 1;
+//'current' tst - first received in json dump
+long int ctst = 0;
+double lastprice = 0;
 
 //dimensions when graph is off/on
 int wgoff = 430;
@@ -478,6 +494,7 @@ void gbtn_init(int left, int top) {
     buttons[0].bottom = top + size;
     buttons[0].label = "graph";
 }
+
 
 //initialise graph time buttons, with their base coords
 void buttons_init(int top, int left, int bwidth, int bheight, int spacing) {
@@ -632,6 +649,7 @@ void stop_curl() {
     curl = NULL;
 }
 
+
 void get_graph(string coin, string currency, string days) {
 
 
@@ -704,14 +722,15 @@ void get_graph(string coin, string currency, string days) {
         tempt = elmnt.substr(0,10);
         //price
         temppr = stod(elmnt.substr(elmnt.find(",") + 1));
-
-        
+      
         tst = stol(tempt,&sz);
         rawtime = (const time_t)tst;
         localtime_s(&timeinfo,&rawtime);
 
-
-
+        //last tst is set as 'current' -to be used for graph button text
+        //this is done repeatedly to ensure the last one is used
+        ctst = tst;
+        lastprice = temppr;
         //if we reached the number of hours in mode, dump json
         if (ct > mode) {
 
@@ -721,6 +740,7 @@ void get_graph(string coin, string currency, string days) {
             json_dump[idx].tst = tst;
             json_dump[idx].label = prettystr(to_string(temppr), 0) + outp;
 
+            
             idx++;
             ct = 0;
         }
@@ -991,6 +1011,130 @@ void get_graph(string coin, string currency, string days) {
     
 }
 
+//fetch api data for button text
+void fetch_btn_data() {
+    string raw;
+    string percent = "";
+    string url;
+    long int tst;
+    raw = "";
+    //char outp[200];
+
+    //last day
+    tst = ctst - (1 * 24 * 60 * 60);
+
+
+    url = "https://api.coingecko.com/api/v3/coins/" + ids + "/market_chart/range?vs_currency=" + vcs + "&from=" + to_string(tst) + "&to=" + to_string(tst + 10000);
+    stop_curl();
+    start_curl(raw, url);
+    curl_easy_perform(curl);
+    stop_curl();
+    start_curl(str_price, final_url);
+    raw = raw.substr(0, raw.find("]"));
+    raw = raw.substr(raw.find(",")+1);
+    //cut to two decimal pts (no rounding)
+    if (raw.find(".") != string::npos) {
+        raw = raw.substr(0, raw.find(".") + 3);
+    }
+    percent = to_string(((lastprice - stod(raw)) / stod(raw)) * 100);
+    if (percent.find(".") != string::npos) {
+        percent = percent.substr(0, percent.find(".") + 3);
+    }
+    //add plus if theres no minus in front
+    if (percent.find("-") == string::npos) {
+        percent = "+" + percent;
+    }
+    buttons[1].change = percent + "%";
+    buttons[1].oldprice = raw;
+
+
+    raw = "";
+    tst = ctst - (7 * 24 * 60 * 60);
+
+    //last week
+    url = "https://api.coingecko.com/api/v3/coins/" + ids + "/market_chart/range?vs_currency=" + vcs + "&from=" + to_string(tst) + "&to=" + to_string(tst + 10000);
+    stop_curl();
+    start_curl(raw, url);
+    curl_easy_perform(curl);
+    stop_curl();
+    start_curl(str_price, final_url);
+    raw = raw.substr(0, raw.find("]"));
+    raw = raw.substr(raw.find(",") + 1);
+    //cut to two decimal pts (no rounding)
+    if (raw.find(".") != string::npos) {
+        raw = raw.substr(0, raw.find(".") + 3);
+    }
+    percent = to_string(((lastprice - stod(raw)) / stod(raw)) * 100);
+    if (percent.find(".") != string::npos) {
+        percent = percent.substr(0, percent.find(".") + 3);
+    }
+    //add plus if theres no minus in front
+    if (percent.find("-") == string::npos) {
+        percent = "+" + percent;
+    }
+    buttons[2].change = percent + "%";
+    buttons[2].oldprice = raw;
+
+
+    raw = "";
+    tst = ctst - (30 * 24 * 60 * 60);
+
+    //1 month
+    url = "https://api.coingecko.com/api/v3/coins/" + ids + "/market_chart/range?vs_currency=" + vcs + "&from=" + to_string(tst) + "&to=" + to_string(tst + 10000);
+    stop_curl();
+    start_curl(raw, url);
+    curl_easy_perform(curl);
+    stop_curl();
+    start_curl(str_price, final_url);
+    raw = raw.substr(0, raw.find("]"));
+    raw = raw.substr(raw.find(",") + 1);
+    //cut to two decimal pts (no rounding)
+    if (raw.find(".") != string::npos) {
+        raw = raw.substr(0, raw.find(".") + 3);
+    }
+    percent = to_string(((lastprice - stod(raw)) / stod(raw)) * 100);
+    if (percent.find(".") != string::npos) {
+        percent = percent.substr(0, percent.find(".") + 3);
+    }
+    //add plus if theres no minus in front
+    if (percent.find("-") == string::npos) {
+        percent = "+" + percent;
+    }
+    buttons[3].change = percent + "%";
+    buttons[3].oldprice = raw;
+
+    raw = "";
+    tst = ctst - (365 * 24 * 60 * 60);
+
+    //1 year
+    url = "https://api.coingecko.com/api/v3/coins/" + ids + "/market_chart/range?vs_currency=" + vcs + "&from=" + to_string(tst) + "&to=" + to_string(tst + 10000);
+    stop_curl();
+    start_curl(raw, url);
+    curl_easy_perform(curl);
+    stop_curl();
+    start_curl(str_price, final_url);
+    raw = raw.substr(0, raw.find("]"));
+    raw = raw.substr(raw.find(",") + 1);
+    //cut to two decimal pts (no rounding)
+    if (raw.find(".") != string::npos) {
+        raw = raw.substr(0, raw.find(".") + 3);
+    }
+    percent = to_string(((lastprice - stod(raw)) / stod(raw)) * 100);
+    //cut to two decimal pts (no rounding)
+    if (percent.find(".") != string::npos) {
+        percent = percent.substr(0, percent.find(".") + 3);
+    }
+    //add plus if theres no minus in front
+    if (percent.find("-") == string::npos) {
+        percent = "+" + percent;
+    }
+    buttons[4].change = percent + "%";
+    buttons[4].oldprice = raw;
+
+
+}
+
+
 void draw_buttons(HDC devc, int width, int height) {
     int avgx = 0;
     SetBkMode(devc, TRANSPARENT);
@@ -1035,21 +1179,56 @@ void draw_buttons(HDC devc, int width, int height) {
         else {
             //only draw these if the graph is on
             if (gstatus != 0) {
+                SelectObject(devc, btnfont);
+                if (buttons[b].on) {
+                    if (buttons[b].change[0] == '+') {
+                        SelectObject(devc, GetStockObject(DC_BRUSH));
+                        SetDCBrushColor(devc, greenon);
+                    }
+                    else {
+                        SelectObject(devc, GetStockObject(DC_BRUSH));
+                        SetDCBrushColor(devc, redon);
+                    }
+                }
+                else {
+                    SelectObject(devc, bgr);
+                }
+                SetTextColor(devc, price_text_netural);
                 if (buttons[b].hover) {
-                    //pen
-                    SelectObject(devc, btngreen);
-                    //brush
-                    SelectObject(devc, btngreenhover);
+                    
+                    if (buttons[b].change[0] == '+') {
+                        //pen
+                        SelectObject(devc, pgreenon);
+
+                        SetTextColor(devc, greentext);
+                    }
+                    else {
+                        //pen
+                        SelectObject(devc, predon);
+
+                        SetTextColor(devc, redtext);
+                    }
                 }
                 else {
                     //pen
-                    SelectObject(devc, btngreen);
-                    //brush
-                    SelectObject(devc, bgr);
-                }
-                RoundRect(devc, buttons[b].left, buttons[b].top, buttons[b].right, buttons[b].bottom, width, height);
-                TextOut(devc, ((buttons[b].right + buttons[b].left)/2)-15, ((buttons[b].bottom + buttons[b].top) / 2)-10, buttons[b].label.c_str(), buttons[b].label.size());
+                    if (buttons[b].change[0] == '+') {
+                        //pen
+                        SelectObject(devc, pgreenoff);
 
+                        SetTextColor(devc, greentext);
+                    }
+                    else {
+                        //pen
+                        SelectObject(devc, predoff);
+                        SetTextColor(devc, redtext);
+                        
+                    }
+                }
+                
+                RoundRect(devc, buttons[b].left, buttons[b].top, buttons[b].right, buttons[b].bottom, width, height);
+                TextOut(devc, ((buttons[b].right + buttons[b].left)/2)-15, ((buttons[b].bottom + buttons[b].top) / 2)-25, buttons[b].label.c_str(), buttons[b].label.size());
+                TextOut(devc, ((buttons[b].right + buttons[b].left) / 2) - 25, ((buttons[b].bottom + buttons[b].top) / 2) - 10, buttons[b].change.c_str(), buttons[b].change.size());
+                TextOut(devc, ((buttons[b].right + buttons[b].left) / 2) - 30, ((buttons[b].bottom + buttons[b].top) / 2) + 5, buttons[b].oldprice.c_str(), buttons[b].oldprice.size());
             }
 
         }
@@ -1231,6 +1410,7 @@ int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstanc
 {
 
     start_curl(str_price,final_url);
+    
     buttons_init(10,420,120,60,10);
     gbtn_init(355, 5);
 
@@ -1240,6 +1420,8 @@ int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstanc
     window_height = hgon;
     window_width = wgon;
     get_graph(ids, vcs, api_days[(gstatus - 1)]);
+    //btn data after getgraph as it relies on setting ctst
+    fetch_btn_data();
     ytxtauto();
 
     HWND hwnd;               /* This is the handle for our window */
@@ -1628,7 +1810,11 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
 
         //check if mouse is over any of the graph time buttons
         for (int b = 1; b < 5; b++) {
+            buttons[b].on = false;
+        }
+        for (int b = 1; b < 5; b++) {
             if (buttons[b].hover) {
+                buttons[b].on = true;
                 gstatus = b;
                 if (gstatus != 0) {
                     get_graph(ids, vcs, api_days[(gstatus - 1)]);
@@ -1666,8 +1852,10 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                 final_url = price_url + "?ids=" + ids + "&vs_currencies=" + vcs;
                 start_curl(str_price, final_url);
                 //get data and draw if graph is on
-                if (gstatus != 0) {
+                if (gstatus != 0) {       
                     get_graph(ids, vcs, api_days[(gstatus-1)]);
+                    //btn data after get graph as ctst is set in getgraph
+                    fetch_btn_data();
                     ytxtauto();
                     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE );
                 }
@@ -1676,27 +1864,6 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
 
             }
 
-            if (LOWORD(wParam) == GRAPH) {
-                
-                gstatus = ItemIndex;
-                if (gstatus != 0) {
-                    if (window_height != hgon) {//if we turned on the graph, then expand the window
-                        window_height = hgon;
-                        window_width = wgon;
-                        SetWindowPos(hwnd, 0, 0, 0, window_width, window_height, SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
-                    }
-                    get_graph(ids, vcs, api_days[(gstatus - 1)]);
-                    ytxtauto();
-                }
-                else {
-                    if (window_height != hgoff) {//if we turned off the graph, then reduce the window
-                        window_height = hgoff;
-                        window_width = wgoff;
-                        SetWindowPos(hwnd, 0, 0, 0, window_width, window_height, SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
-                    }
-                }
-                RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE );
-            }
 
             //MessageBox(hwnd, ListItem, Pairs[ItemIndex][1], MB_OK);
             
