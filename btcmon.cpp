@@ -2,13 +2,20 @@
 #include <string>
 #include <tchar.h>
 #include <windows.h>
-#include <curl/curl.h>
+#include <WinInet.h>
 #include <CommCtrl.h>
 #include <time.h>
-
+#include <iostream>
+#pragma comment(lib, "Wininet.lib")
+#define WIN32_LEAN_AND_MEAN
 
 using namespace std;
 
+
+HINTERNET hInternet = NULL;
+HINTERNET hConnect = NULL;
+HINTERNET hRequest = NULL;
+string wnetpath = "";
 
 COLORREF bkg = RGB(100, 100, 100);
 
@@ -22,7 +29,7 @@ COLORREF greentext = RGB(179, 230, 204);
 COLORREF gbon = RGB(185, 185, 185);
 COLORREF gboff = RGB(85, 85, 85);
 
-COLORREF axis_text = RGB(160, 160, 160);
+COLORREF axis_text = RGB(160, 160, 161);
 COLORREF coord_text = RGB(0, 0, 0);
 COLORREF top_text = RGB(200, 200, 200);
 COLORREF price_text_netural = RGB(220, 220, 220);
@@ -71,7 +78,6 @@ int init_curr = 8;
 //btc
 int init_coin = 22;
 
-CURL *curl;
 
 //currencies available on coingecko api
 TCHAR currencies[55][10] =
@@ -471,7 +477,7 @@ LPCSTR glabelptr = glabel.c_str();
 
 string ids = coins[init_coin][0];
 string vcs = currencies[init_curr];
-string price_url = "https://api.coingecko.com/api/v3/simple/price";
+string price_url = "/api/v3/simple/price";
 string final_url = price_url + "?ids=" + ids + "&vs_currencies=" + vcs;
 string api_days[4] = {"1","7","30","365"};
 
@@ -631,22 +637,44 @@ size_t writeFunction(void* ptr, size_t size, size_t nmemb, std::string* data) {
     return size * nmemb;
 }
 
-void start_curl(string &output,string addr) {
-    curl_global_init(CURL_GLOBAL_DEFAULT);
-    curl = curl_easy_init();
-    if (curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, addr.c_str());
-        curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
-        curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFunction);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &output);
-    }
+void start_wininet(std::string host) {
+    string ua = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0";
+    //string host = "api.coingecko.com";
+    hInternet = InternetOpenA(ua.c_str(), INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+    hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, NULL);
+
 }
 
-void stop_curl() {
-    curl_easy_cleanup(curl);
-    curl_global_cleanup();
-    curl = NULL;
+std::string wininet_get(std::string path) {
+
+    HINTERNET hRequest = HttpOpenRequestA(hConnect, "GET", path.c_str(), NULL, NULL, NULL, INTERNET_FLAG_SECURE | INTERNET_FLAG_NO_AUTO_REDIRECT, 0);
+
+    wnetpath = path;
+   
+    BOOL sendr = HttpSendRequestA(hRequest, NULL, -1L, NULL, NULL);
+    std::string strResponse;
+    const int nBuffSize = 1024;
+    char buff[nBuffSize]; //use bytes rather than string to help with binary file downloads
+
+
+    BOOL bKeepReading = true;
+    DWORD dwBytesRead = -1;
+
+    while (bKeepReading && dwBytesRead != 0)
+    {
+        bKeepReading = InternetReadFile(hRequest, buff, nBuffSize, &dwBytesRead);
+        strResponse.append(buff, dwBytesRead);
+    }
+
+    return strResponse;
+}
+
+void stop_wininet() {
+    InternetCloseHandle(hInternet);
+    InternetCloseHandle(hConnect);
+    if (hRequest != NULL) {
+        InternetCloseHandle(hRequest);
+    }
 }
 
 
@@ -680,11 +708,12 @@ void get_graph(string coin, string currency, string days) {
 
     url = "https://api.coingecko.com/api/v3/coins/"+coin+"/market_chart?vs_currency="+currency+"&days="+days;
 
-    stop_curl();
-    start_curl(raw, url);
-    curl_easy_perform(curl);
-    stop_curl();
-    start_curl(str_price, final_url);
+    raw = wininet_get("/api/v3/coins/" + coin + "/market_chart?vs_currency=" + currency + "&days=" + days);
+    str_price = wininet_get(final_url);
+    cout << "final url:" + final_url << endl;
+    OutputDebugString("final url\n");
+    OutputDebugString(final_url.c_str());
+    //start_curl(str_price, final_url);
 
     start = raw.find(":") + 2;
     raw = raw.substr(start);
@@ -1024,12 +1053,14 @@ void fetch_btn_data() {
     tst = ctst - (1 * 24 * 60 * 60);
 
 
-    url = "https://api.coingecko.com/api/v3/coins/" + ids + "/market_chart/range?vs_currency=" + vcs + "&from=" + to_string(tst) + "&to=" + to_string(tst + 10000);
-    stop_curl();
-    start_curl(raw, url);
-    curl_easy_perform(curl);
-    stop_curl();
-    start_curl(str_price, final_url);
+    url = "/api/v3/coins/" + ids + "/market_chart/range?vs_currency=" + vcs + "&from=" + to_string(tst) + "&to=" + to_string(tst + 10000);
+    //stop_curl();
+    //start_curl(raw, url);
+    //curl_easy_perform(curl);
+    //stop_curl();
+    //start_curl(str_price, final_url);
+    raw = wininet_get(url);
+    str_price = wininet_get(final_url);
     raw = raw.substr(0, raw.find("]"));
     raw = raw.substr(raw.find(",")+1);
     //cut to two decimal pts (no rounding)
@@ -1052,12 +1083,9 @@ void fetch_btn_data() {
     tst = ctst - (7 * 24 * 60 * 60);
 
     //last week
-    url = "https://api.coingecko.com/api/v3/coins/" + ids + "/market_chart/range?vs_currency=" + vcs + "&from=" + to_string(tst) + "&to=" + to_string(tst + 10000);
-    stop_curl();
-    start_curl(raw, url);
-    curl_easy_perform(curl);
-    stop_curl();
-    start_curl(str_price, final_url);
+    url = "/api/v3/coins/" + ids + "/market_chart/range?vs_currency=" + vcs + "&from=" + to_string(tst) + "&to=" + to_string(tst + 10000);
+    raw = wininet_get(url);
+    str_price = wininet_get(final_url);
     raw = raw.substr(0, raw.find("]"));
     raw = raw.substr(raw.find(",") + 1);
     //cut to two decimal pts (no rounding)
@@ -1080,12 +1108,9 @@ void fetch_btn_data() {
     tst = ctst - (30 * 24 * 60 * 60);
 
     //1 month
-    url = "https://api.coingecko.com/api/v3/coins/" + ids + "/market_chart/range?vs_currency=" + vcs + "&from=" + to_string(tst) + "&to=" + to_string(tst + 10000);
-    stop_curl();
-    start_curl(raw, url);
-    curl_easy_perform(curl);
-    stop_curl();
-    start_curl(str_price, final_url);
+    url = "/api/v3/coins/" + ids + "/market_chart/range?vs_currency=" + vcs + "&from=" + to_string(tst) + "&to=" + to_string(tst + 10000);
+    raw = wininet_get(url);
+    str_price = wininet_get(final_url);
     raw = raw.substr(0, raw.find("]"));
     raw = raw.substr(raw.find(",") + 1);
     //cut to two decimal pts (no rounding)
@@ -1107,12 +1132,9 @@ void fetch_btn_data() {
     tst = ctst - (365 * 24 * 60 * 60);
 
     //1 year
-    url = "https://api.coingecko.com/api/v3/coins/" + ids + "/market_chart/range?vs_currency=" + vcs + "&from=" + to_string(tst) + "&to=" + to_string(tst + 10000);
-    stop_curl();
-    start_curl(raw, url);
-    curl_easy_perform(curl);
-    stop_curl();
-    start_curl(str_price, final_url);
+    url = "/api/v3/coins/" + ids + "/market_chart/range?vs_currency=" + vcs + "&from=" + to_string(tst) + "&to=" + to_string(tst + 10000);
+    raw = wininet_get(url);
+    str_price = wininet_get(final_url);
     raw = raw.substr(0, raw.find("]"));
     raw = raw.substr(raw.find(",") + 1);
     //cut to two decimal pts (no rounding)
@@ -1409,8 +1431,8 @@ void draw_graph(HDC devc) {
 int WINAPI WinMain(_In_ HINSTANCE hThisInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpszArgument, _In_ int nCmdShow)
 {
 
-    start_curl(str_price,final_url);
-    
+    start_wininet("api.coingecko.com");
+    cout << "wininet started" << endl;
     buttons_init(10,420,120,60,10);
     gbtn_init(355, 5);
 
@@ -1547,7 +1569,7 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
     switch (message)                 
     {
     case WM_DESTROY:
-        stop_curl();
+        stop_wininet();
         KillTimer(hwnd, 1);
         PostQuitMessage(0);      
         break;
@@ -1848,9 +1870,10 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
                     //vcs = currencies[ItemIndex];
                 }
 
-                stop_curl();
+                //stop_curl();
                 final_url = price_url + "?ids=" + ids + "&vs_currencies=" + vcs;
-                start_curl(str_price, final_url);
+                //start_curl(str_price, final_url);
+                str_price = wininet_get(final_url);
                 //get data and draw if graph is on
                 if (gstatus != 0) {       
                     get_graph(ids, vcs, api_days[(gstatus-1)]);
@@ -1893,8 +1916,8 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
         case 1:
             
             str_price = "";
-            curl_easy_perform(curl);
-
+            //curl_easy_perform(curl);
+            str_price = wininet_get(final_url);
             int pstart = str_price.find(vcs) + 5;
             str_price = str_price.substr(pstart, str_price.find('}')-pstart);
             old_price = cur_price;
